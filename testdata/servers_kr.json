@@ -1,0 +1,10 @@
+{
+    "serverList": [
+        {
+            "raceId": 1,
+            "serverId": 1001,
+            "serverName": "시엘",
+            "serverShortName": "시엘"
+        }
+    ]
+}

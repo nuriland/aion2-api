@@ -1,0 +1,39 @@
+{
+    "pcDataList": [
+        {
+            "className": "GLADIATOR",
+            "classText": "Gladiator",
+            "genderName": "Male",
+            "id": 5,
+            "raceName": "Light"
+        },
+        {
+            "className": "GLADIATOR",
+            "classText": "Gladiator",
+            "genderName": "Female",
+            "id": 6,
+            "raceName": "Light"
+        },
+        {
+            "className": "GLADIATOR",
+            "classText": "Gladiator",
+            "genderName": "Male",
+            "id": 7,
+            "raceName": "Dark"
+        },
+        {
+            "className": "GLADIATOR",
+            "classText": "Gladiator",
+            "genderName": "Female",
+            "id": 8,
+            "raceName": "Dark"
+        },
+        {
+            "className": "CLERIC",
+            "classText": "Cleric",
+            "genderName": "Male",
+            "id": 29,
+            "raceName": "Light"
+        }
+    ]
+}

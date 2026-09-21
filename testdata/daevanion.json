@@ -1,0 +1,42 @@
+{
+    "nodeList": [
+        {
+            "boardId": 71,
+            "col": 8,
+            "effectList": [],
+            "grade": "None",
+            "icon": "",
+            "name": "",
+            "nodeId": 710001,
+            "open": 1,
+            "row": 8,
+            "type": "Start"
+        },
+        {
+            "boardId": 71,
+            "col": 2,
+            "effectList": [
+                {
+                    "desc": "Critical Hit Resist +10"
+                }
+            ],
+            "grade": "Common",
+            "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/UT_FWindow_Daevanion_Node_Common_Sprite.png",
+            "name": "Critical Hit Resist",
+            "nodeId": 710152,
+            "open": 0,
+            "row": 11,
+            "type": "Stat"
+        }
+    ],
+    "openSkillEffectList": [
+        {
+            "desc": "Empyrean Lords' Benediction +1"
+        }
+    ],
+    "openStatEffectList": [
+        {
+            "desc": "HP +1500"
+        }
+    ]
+}

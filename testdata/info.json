@@ -1,0 +1,80 @@
+{
+    "profile": {
+        "characterId": "AAAAtestAAAA_-0000000000000000000000000001=",
+        "characterLevel": 50,
+        "characterName": "Alpha",
+        "className": "Cleric",
+        "combatPower": 123456,
+        "gender": 1,
+        "genderName": "Male",
+        "pcId": 29,
+        "profileImage": "https://profileimg.plaync.com/game_profile_images/aion2/images?gameServerKey=1001&charKey=1",
+        "raceId": 1,
+        "raceName": "Elyos",
+        "regionName": "Asmo Hunters",
+        "serverId": 1001,
+        "serverName": "시엘",
+        "titleGrade": "Legend",
+        "titleId": 13040060,
+        "titleName": "Dominator of Chalice of Muspel"
+    },
+    "stat": {
+        "statList": [
+            {
+                "name": "Might",
+                "statSecondList": [
+                    "Attack increase +29%"
+                ],
+                "type": "STR",
+                "value": 290
+            },
+            {
+                "name": "Item Level",
+                "statSecondList": null,
+                "type": "ItemLevel",
+                "value": 3000
+            }
+        ]
+    },
+    "title": {
+        "ownedCount": 120,
+        "totalCount": 300,
+        "titleList": [
+            {
+                "equipCategory": "Attack",
+                "equipStatList": [
+                    {
+                        "desc": "Attack +10"
+                    }
+                ],
+                "grade": "Legend",
+                "id": 13040060,
+                "name": "Dominator of Chalice of Muspel",
+                "ownedCount": 40,
+                "ownedPercent": 40,
+                "statList": [
+                    {
+                        "desc": "HP +100"
+                    }
+                ],
+                "totalCount": 100
+            }
+        ]
+    },
+    "ranking": {
+        "rankingList": null
+    },
+    "daevanion": {
+        "boardList": [
+            {
+                "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/UT_Weapon_Sword_1H.png",
+                "id": 71,
+                "name": "Nezekan",
+                "open": 1,
+                "openNodeCount": 114,
+                "openPercent": 75,
+                "totalNodeCount": 152
+            }
+        ]
+    }
+}

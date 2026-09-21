@@ -1,0 +1,378 @@
+package aion2
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// Server is one world NC serves, with a unique name and ID
+type Server struct {
+	Region    Region `json:"region"`
+	ServerID  int    `json:"serverId"`
+	RaceID    int    `json:"raceId"` // 1 = Ely, 2 = Asmo
+	Name      string `json:"serverName"`
+	ShortName string `json:"serverShortName"`
+}
+
+type Class struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"` // English slug: Gladiator, Templar, ...
+	Text string `json:"text"` // localized: 검성 / 劍星 / Gladiator
+}
+
+// CharacterRef identifies a character within one region
+type CharacterRef struct {
+	ServerID    int    `json:"serverId"`
+	CharacterID string `json:"characterId"`
+}
+
+type Character struct {
+	Region    Region             `json:"region"`
+	Profile   CharacterProfile   `json:"profile"`
+	Stats     []Stat             `json:"stats"`
+	Titles    TitleSummary       `json:"titles"`
+	Rankings  []CharacterRanking `json:"rankings"`
+	Daevanion []DaevanionSummary `json:"daevanion"`
+}
+
+type CharacterProfile struct {
+	Ref         CharacterRef `json:"ref"`
+	Name        string       `json:"characterName"`
+	Level       int          `json:"characterLevel"`
+	ClassID     int          `json:"classId"`    // 0 if NC's class table was unreachable or does not list the class
+	ClassName   string       `json:"className"`  // localized, from the profile itself; set even when ClassID is 0
+	Gender      string       `json:"genderName"` // localized
+	RaceID      int          `json:"raceId"`
+	ServerName  string       `json:"serverName"`
+	GuildName   string       `json:"regionName"`
+	CombatPower int          `json:"combatPower"`
+	TitleName   string       `json:"titleName"`
+	ImageURL    string       `json:"profileImage"`
+}
+
+type Stat struct {
+	Type    string   `json:"type"` // STR, DEX, ..., ItemLevel
+	Name    string   `json:"name"` // localized
+	Value   int      `json:"value"`
+	Effects []string `json:"statSecondList"`
+}
+
+type TitleSummary struct {
+	Total  int     `json:"totalCount"`
+	Owned  int     `json:"ownedCount"`
+	Titles []Title `json:"titleList"`
+}
+
+type Title struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Grade        string `json:"grade"`
+	Category     string `json:"equipCategory"`
+	Total        int    `json:"totalCount"`
+	Owned        int    `json:"ownedCount"`
+	OwnedPercent int    `json:"ownedPercent"`
+	Stats        Lines  `json:"statList"`
+	EquipStats   Lines  `json:"equipStatList"`
+}
+
+type CharacterRanking struct {
+	ContentsType int     `json:"rankingContentsType"`
+	ContentsName string  `json:"rankingContentsName"`
+	RankingType  int     `json:"rankingType"`
+	Rank         int     `json:"rank"`
+	PrevRank     int     `json:"prevRank"`
+	RankChange   int     `json:"rankChange"`
+	Point        float64 `json:"point"`
+	GradeName    string  `json:"gradeName"`
+	GradeIconURL string  `json:"gradeIcon"`
+}
+
+// DaevanionSummary is one board's progress. Its ID opens the board itself
+// through Daevanion.
+type DaevanionSummary struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	IconURL     string `json:"icon"`
+	Open        Flag   `json:"open"`
+	OpenNodes   int    `json:"openNodeCount"`
+	TotalNodes  int    `json:"totalNodeCount"`
+	OpenPercent int    `json:"openPercent"`
+}
+
+type CharacterSearch struct {
+	Keyword  string // required
+	RaceID   int    // required, 1 = Ely, 2 = Asmo
+	ServerID int    // 0 = every server in the region
+	ClassIDs []int  // Class.ID values
+	Sort     string
+	Page     int // default 1
+	Size     int // default 40; 200 works
+}
+
+type CharacterSummary struct {
+	Ref        CharacterRef `json:"ref"`
+	Region     Region       `json:"region"`
+	Name       string       `json:"name"`
+	ServerName string       `json:"serverName"`
+	ClassID    int          `json:"classId"`   // 0 if NC's class table was unreachable or does not list the class
+	ClassName  string       `json:"className"` // localized; empty whenever ClassID is 0
+	RaceID     int          `json:"race"`
+	Level      int          `json:"level"`
+}
+
+type Equipment struct {
+	Region   Region       `json:"region"`
+	Ref      CharacterRef `json:"ref"`
+	Slots    []EquipSlot  `json:"slots"`
+	Skins    []EquipSlot  `json:"skins"`
+	Pet      *Pet         `json:"pet"`
+	Wing     *Wing        `json:"wing"`
+	WingSkin *Wing        `json:"wingSkin"`
+	Skills   []Skill      `json:"skills"`
+}
+
+type EquipSlot struct {
+	SlotPos      int    `json:"slotPos"`
+	SlotName     string `json:"slotPosName"`
+	ItemID       int    `json:"id"`
+	Name         string `json:"name"`
+	Grade        string `json:"grade"`
+	EnchantLevel int    `json:"enchantLevel"`
+	ExceedLevel  int    `json:"exceedLevel"`
+	ImageURL     string `json:"icon"`
+}
+
+type Pet struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Level    int    `json:"level"`
+	ImageURL string `json:"icon"`
+}
+
+type Wing struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Grade        string `json:"grade"`
+	EnchantLevel int    `json:"enchantLevel"`
+	ImageURL     string `json:"icon"`
+}
+
+type Skill struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Category  string `json:"category"`
+	Level     int    `json:"skillLevel"`
+	NeedLevel int    `json:"needLevel"`
+	Acquired  Flag   `json:"acquired"`
+	Equipped  Flag   `json:"equip"`
+	ImageURL  string `json:"icon"`
+}
+
+// EquippedItem is one worn piece in full. Stat values stay the strings NC
+// sends ("491", "+80", "12.5%"): they are for display, not arithmetic.
+type EquippedItem struct {
+	Region          Region          `json:"region"`
+	Ref             CharacterRef    `json:"ref"`
+	SlotPos         int             `json:"slotPos"`
+	ItemID          int             `json:"id"`
+	Name            string          `json:"name"`
+	Grade           string          `json:"grade"`     // Epic
+	GradeName       string          `json:"gradeName"` // localized: Heroic
+	CategoryName    string          `json:"categoryName"`
+	Type            string          `json:"type"` // Equip, Accessory
+	ImageURL        string          `json:"icon"`
+	ItemLevel       int             `json:"level"`
+	EquipLevel      int             `json:"equipLevel"`
+	EnchantLevel    int             `json:"enchantLevel"`
+	MaxEnchantLevel int             `json:"maxEnchantLevel"`
+	MaxExceedLevel  int             `json:"maxExceedEnchantLevel"`
+	RaceName        string          `json:"raceName"`
+	ClassNames      []string        `json:"classNames"`
+	Tradable        bool            `json:"tradable"`
+	SoulBindRate    string          `json:"soulBindRate"`
+	MainStats       []ItemStat      `json:"mainStats"`
+	SubStats        []ItemStat      `json:"subStats"` // the random rolls
+	SubSkills       []ItemSkill     `json:"subSkills"`
+	MagicStoneSlots int             `json:"magicStoneSlotCount"`
+	MagicStones     []MagicStone    `json:"magicStoneStat"`
+	GodStoneSlots   int             `json:"godStoneSlotCount"`
+	GodStones       []GodStone      `json:"godStoneStat"`
+	Costumes        []string        `json:"costumes"`
+	Sources         []string        `json:"sources"`
+	Raw             json.RawMessage `json:"-"`
+}
+
+type ItemStat struct {
+	ID       string `json:"id"`   // NC's stat key: ArmorDefense, HPMax, ...
+	Name     string `json:"name"` // localized
+	Value    string `json:"value"`
+	MinValue string `json:"minValue"` // on weapons, the low end of the damage range
+	Extra    string `json:"extra"`    // on main stats, the share that comes from enchanting
+	Exceed   bool   `json:"exceed"`
+}
+
+type ItemSkill struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Level    int    `json:"level"`
+	ImageURL string `json:"icon"`
+}
+
+type MagicStone struct {
+	SlotPos  int    `json:"slotPos"`
+	ID       string `json:"id"` // stat key
+	Name     string `json:"name"`
+	Value    string `json:"value"`
+	Grade    string `json:"grade"`
+	ImageURL string `json:"icon"`
+}
+
+type GodStone struct {
+	SlotPos  int    `json:"slotPos"`
+	Name     string `json:"name"`
+	Desc     string `json:"desc"`
+	Grade    string `json:"grade"`
+	ImageURL string `json:"icon"`
+}
+
+type DaevanionBoard struct {
+	Region       Region          `json:"region"`
+	Ref          CharacterRef    `json:"ref"`
+	BoardID      int             `json:"boardId"`
+	Nodes        []DaevanionNode `json:"nodeList"`
+	SkillEffects Lines           `json:"openSkillEffectList"`
+	StatEffects  Lines           `json:"openStatEffectList"`
+}
+
+type DaevanionNode struct {
+	ID      int    `json:"nodeId"`
+	Name    string `json:"name"`
+	Grade   string `json:"grade"`
+	Type    string `json:"type"` // Start, Stat, SkillLevel, None
+	IconURL string `json:"icon"`
+	Row     int    `json:"row"`
+	Col     int    `json:"col"`
+	Open    Flag   `json:"open"`
+	Effects Lines  `json:"effectList"`
+}
+
+// ItemSearch filters use the IDs the catalog publishes about itself.
+//
+// Grade is Common, Rare, Legend, Unique or Epic.
+//
+// Category is a top-level id such as Equip_Weapon; SubCategory one of its children, such as Greatsword.
+type ItemSearch struct {
+	Query       string
+	Grade       string
+	Category    string
+	SubCategory string
+	ClassID     int // Class.ID
+	Page        int // default 1
+	Size        int // default 30; 200 works
+}
+
+type ItemSummary struct {
+	ID           int      `json:"id"`
+	Region       Region   `json:"region"` // the catalog it came from, not "exists only here"
+	Name         string   `json:"name"`
+	Grade        string   `json:"grade"`
+	ImageURL     string   `json:"image"`
+	CategoryName string   `json:"categoryName"`
+	Options      []string `json:"options"`
+	Tradable     *bool    `json:"tradable"`
+}
+
+type Item struct {
+	ItemSummary
+	Raw json.RawMessage `json:"-"` // the upstream row, for fields the SDK does not map
+}
+
+// The values are the official ranking page's own table, read from its bundle (built 2026-04-08)
+type RankingContents int
+
+const (
+	RankingAbyss              RankingContents = 1
+	RankingNightmare          RankingContents = 3
+	RankingTranscendence      RankingContents = 4
+	RankingArenaOfSolitude    RankingContents = 5
+	RankingArenaOfCooperation RankingContents = 6
+	RankingAscensionTrial     RankingContents = 21
+)
+
+// RankingQuery mirrors the official page's filters. Boards are per server and hold at most 100 rows
+type RankingQuery struct {
+	ContentsType RankingContents
+	ServerID     int
+	ClassID      int    // 0 = all classes, for some reason NC calls this rankingType
+	Name         string // character name filter
+}
+
+type RankingPage struct {
+	Region  Region         `json:"region"`
+	Season  *Season        `json:"season"`
+	Entries []RankingEntry `json:"entries"`
+}
+
+type Season struct {
+	ContentsType RankingContents `json:"rankingContentsType"`
+	State        int             `json:"state"`
+	GroupName    string          `json:"groupName"`
+	SeasonNo     int             `json:"seasonNo"`
+	PrevSeasonNo int             `json:"prevSeasonNo"`
+	StartDate    string          `json:"startDate"` // ISO-8601, per NC's schema
+	EndDate      string          `json:"endDate"`
+}
+
+type RankingEntry struct {
+	Ref CharacterRef    `json:"ref"`
+	Raw json.RawMessage `json:"-"`
+
+	Rank       int `json:"rank"`
+	PrevRank   int `json:"prevRank"`
+	RankChange int `json:"rankChange"` // positive means climbed
+
+	IsNew         bool   `json:"isNew"` // if true, the character was not on the board before, RankChange will be 0
+	CharacterName string `json:"characterName"`
+
+	ClassID   int    `json:"classId"`
+	ClassName string `json:"className"`
+
+	RaceID    int     `json:"raceId"`
+	GuildName string  `json:"guildName"`
+	Point     float64 `json:"point"`
+	GradeName string  `json:"gradeName"`
+}
+
+type Flag bool
+
+func (f *Flag) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case "1", "true":
+		*f = true
+	case "0", "false", "null":
+		*f = false
+	default:
+		return fmt.Errorf("aion2: flag is %s, want 0 or 1", data)
+	}
+	return nil
+}
+
+// Lines is a list of strings NC sends as [{"desc": "..."}].
+type Lines []string
+
+func (l *Lines) UnmarshalJSON(data []byte) error {
+	var rows []descRow
+	if err := json.Unmarshal(data, &rows); err != nil {
+		var plain []string
+		if json.Unmarshal(data, &plain) != nil {
+			return err
+		}
+		*l = plain
+		return nil
+	}
+	*l = nil
+	for _, row := range rows {
+		*l = append(*l, row.Desc)
+	}
+	return nil
+}

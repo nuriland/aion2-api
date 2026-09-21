@@ -1,0 +1,23 @@
+{
+    "contents": [
+        {
+            "id": 110120001,
+            "name": "應龍王巨劍",
+            "image": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_GS_0110_T05.png",
+            "grade": "Epic",
+            "options": [
+                "暴擊 150"
+            ],
+            "favorite": false,
+            "tradable": true,
+            "categoryName": "巨劍"
+        }
+    ],
+    "pagination": {
+        "page": 1,
+        "size": 30,
+        "lastPage": 334,
+        "total": 11221,
+        "limit": 10000
+    }
+}

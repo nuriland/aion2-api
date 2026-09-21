@@ -1,0 +1,32 @@
+{
+    "list": [
+        {
+            "characterId": "AAAAtestAAAA_-0000000000000000000000000001%3D",
+            "name": "<strong>A</strong>lpha",
+            "race": 1,
+            "pcId": 29,
+            "level": 50,
+            "serverId": 1001,
+            "serverName": "시엘",
+            "profileImageUrl": "/game_profile_images/aion2/images?gameServerKey=1001&charKey=1",
+            "region": null
+        },
+        {
+            "characterId": "AAAAtestAAAA_-0000000000000000000000000002%3D",
+            "name": "Bet<strong>a</strong>",
+            "race": 1,
+            "pcId": 6,
+            "level": 17,
+            "serverId": 1001,
+            "serverName": "시엘",
+            "profileImageUrl": "/game_profile_images/aion2/images?gameServerKey=1001&charKey=2",
+            "region": null
+        }
+    ],
+    "pagination": {
+        "page": 1,
+        "size": 20,
+        "total": 2,
+        "endPage": 1
+    }
+}

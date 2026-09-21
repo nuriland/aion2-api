@@ -1,0 +1,49 @@
+{
+    "classList": [
+        {
+            "id": 2,
+            "name": "Gladiator",
+            "text": "Gladiator"
+        },
+        {
+            "id": 3,
+            "name": "Templar",
+            "text": "Templar"
+        },
+        {
+            "id": 5,
+            "name": "Assassin",
+            "text": "Assassin"
+        },
+        {
+            "id": 4,
+            "name": "Ranger",
+            "text": "Ranger"
+        },
+        {
+            "id": 7,
+            "name": "Sorcerer",
+            "text": "Sorcerer"
+        },
+        {
+            "id": 6,
+            "name": "Elementalist",
+            "text": "Spiritmaster"
+        },
+        {
+            "id": 8,
+            "name": "Cleric",
+            "text": "Cleric"
+        },
+        {
+            "id": 9,
+            "name": "Chanter",
+            "text": "Chanter"
+        },
+        {
+            "id": 12,
+            "name": "Fighter",
+            "text": "Brawler"
+        }
+    ]
+}

@@ -1,0 +1,88 @@
+{
+    "id": 110720001,
+    "name": "Noble Dragon Lord Mace",
+    "grade": "Epic",
+    "gradeName": "Heroic",
+    "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_MA_0110_T05.png",
+    "level": 108,
+    "levelValue": 20,
+    "enchantLevel": 20,
+    "storable": true,
+    "tradable": false,
+    "tradablePersonal": false,
+    "enchantable": true,
+    "decomposable": true,
+    "maxEnchantLevel": 20,
+    "maxExceedEnchantLevel": 5,
+    "raceName": "Elyos",
+    "classNames": [
+        "Cleric"
+    ],
+    "categoryName": "Mace",
+    "type": "Equip",
+    "equipLevel": 45,
+    "magicStoneSlotCount": 5,
+    "godStoneSlotCount": 1,
+    "costumes": [
+        "Noble Dragon Lord (Mace)"
+    ],
+    "subStatCount": 6,
+    "subSkillCountMax": 6,
+    "subStatRandom": true,
+    "mainStats": [
+        {
+            "id": "WeaponFixingDamage",
+            "name": "Attack",
+            "minValue": "440",
+            "value": "491",
+            "extra": "350",
+            "exceed": false
+        },
+        {
+            "id": "WeaponAccuracy",
+            "name": "Accuracy",
+            "value": "100",
+            "extra": "0",
+            "exceed": false
+        }
+    ],
+    "soulBindRate": "89.2",
+    "subStats": [
+        {
+            "id": "Critical",
+            "name": "Critical Hit",
+            "value": "60"
+        }
+    ],
+    "subSkills": [
+        {
+            "id": 17010000,
+            "level": 2,
+            "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/ICON_CL_SKILL_001.png",
+            "name": "Earth's Retribution"
+        }
+    ],
+    "magicStoneStat": [
+        {
+            "id": "MPMax",
+            "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_Item_Usable_Enchant_MagicStone_A_c_003.png",
+            "value": "+80",
+            "name": "MP",
+            "grade": "Unique",
+            "slotPos": 0
+        }
+    ],
+    "godStoneStat": [
+        {
+            "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_GodStone_001.png",
+            "name": "Godstone",
+            "desc": "Chance to stun on hit",
+            "grade": "Epic",
+            "slotPos": 0
+        }
+    ],
+    "sources": [
+        "Crafting"
+    ],
+    "favorite": false
+}

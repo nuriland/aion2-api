@@ -1,0 +1,14 @@
+{
+    "equipment": {
+        "equipmentList": null,
+        "skinList": null
+    },
+    "petwing": {
+        "pet": null,
+        "wing": null,
+        "wingSkin": null
+    },
+    "skill": {
+        "skillList": null
+    }
+}

@@ -1,0 +1,47 @@
+{
+    "equipment": {
+        "equipmentList": [
+            {
+                "enchantLevel": 20,
+                "exceedLevel": 5,
+                "grade": "Epic",
+                "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_MA_0110_T05.png",
+                "id": 110720001,
+                "name": "Noble Dragon Lord Mace",
+                "slotPos": 1,
+                "slotPosName": "MainHand"
+            }
+        ],
+        "skinList": []
+    },
+    "petwing": {
+        "pet": {
+            "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/UT_Vehicle_Portrait_Neuth_01.png",
+            "id": 1005,
+            "level": 5,
+            "name": "Klaw"
+        },
+        "wing": {
+            "enchantLevel": 10,
+            "grade": "Unique",
+            "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WingA_005.png",
+            "id": 30100500,
+            "name": "Nightmare Wings"
+        },
+        "wingSkin": null
+    },
+    "skill": {
+        "skillList": [
+            {
+                "acquired": 1,
+                "category": "Active",
+                "equip": 1,
+                "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/ICON_CL_SKILL_001.png",
+                "id": 17010000,
+                "name": "Earth's Retribution",
+                "needLevel": 1,
+                "skillLevel": 20
+            }
+        ]
+    }
+}

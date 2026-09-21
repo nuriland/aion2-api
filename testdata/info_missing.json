@@ -1,0 +1,35 @@
+{
+    "profile": {
+        "characterId": null,
+        "characterLevel": null,
+        "characterName": null,
+        "className": null,
+        "combatPower": null,
+        "gender": null,
+        "genderName": null,
+        "pcId": null,
+        "profileImage": null,
+        "raceId": null,
+        "raceName": null,
+        "regionName": "",
+        "serverId": null,
+        "serverName": "",
+        "titleGrade": "",
+        "titleId": null,
+        "titleName": ""
+    },
+    "stat": {
+        "statList": null
+    },
+    "title": {
+        "ownedCount": null,
+        "titleList": null,
+        "totalCount": null
+    },
+    "ranking": {
+        "rankingList": null
+    },
+    "daevanion": {
+        "boardList": null
+    }
+}
