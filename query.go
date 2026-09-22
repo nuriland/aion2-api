@@ -6,16 +6,18 @@ import (
 	"strings"
 )
 
+// query leaves serverId out when unset: NC treats serverId=0 as a server that
+// does not exist and answers with zero matches.
 func (q CharacterSearch) query() url.Values {
-	// @REVIEW: rewrite this shit
+	size := q.Size
+	if size <= 0 {
+		size = 40
+	}
 	v := url.Values{
 		"keyword": {q.Keyword},
-		"race":    {strconv.Itoa(q.RaceID)}, // 1 = Ely, 2 = Asmo, empty race will be HTTP 400
+		"race":    {strconv.Itoa(q.RaceID)}, // 1 = Ely, 2 = Asmo
 		"page":    {strconv.Itoa(max(q.Page, 1))},
-		"size":    {strconv.Itoa(q.Size)},
-	}
-	if q.Size <= 0 {
-		v.Set("size", "40")
+		"size":    {strconv.Itoa(size)},
 	}
 	if q.ServerID > 0 {
 		v.Set("serverId", strconv.Itoa(q.ServerID))

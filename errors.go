@@ -8,12 +8,16 @@ import (
 	"time"
 )
 
+// maxErrorBodyBytes is the cap size for the err body to be logged
+const maxErrorBodyBytes = 512
+
 var (
 	ErrNotFound           = errors.New("aion2: not found")
 	ErrUpstream           = errors.New("aion2: upstream error")
 	ErrBadRequest         = errors.New("aion2: upstream rejected params")
 	ErrRateLimited        = errors.New("aion2: rate limited")
 	ErrEmptyRanking       = errors.New("aion2: ranking list empty")
+	ErrNotImplemented     = errors.New("aion2: not implemented")
 	ErrUnsupportedRegion  = errors.New("aion2: unsupported region")
 	ErrFeatureUnavailable = errors.New("aion2: feature unavailable on this region")
 )
@@ -45,9 +49,6 @@ func (e *APIError) Error() string {
 }
 
 func (e *APIError) Unwrap() error { return e.Err }
-
-// cap for the err body to be logged
-const maxErrorBodyBytes = 512
 
 func sentinelFor(status int) error {
 	switch {

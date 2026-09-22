@@ -22,11 +22,11 @@ func main() {
 	if *verbose {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
-	tw, err := aion2.New(aion2.Config{Region: aion2.RegionTW, Locale: aion2.LocaleZHTW, Logger: logger})
+	tw, err := aion2.New(aion2.ConfigOpts{Region: aion2.RegionTW, Locale: aion2.LocaleZHTW, Logger: logger})
 	if err != nil {
 		log.Fatal(err)
 	}
-	kr, err := aion2.New(aion2.Config{Region: aion2.RegionKR, Locale: aion2.LocaleEN, Logger: logger})
+	kr, err := aion2.New(aion2.ConfigOpts{Region: aion2.RegionKR, Locale: aion2.LocaleEN, Logger: logger})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func main() {
 	}
 	fmt.Println("KR items: unavailable, as expected")
 
-	for _, c := range []*aion2.Client{kr, tw} {
+	for _, c := range []aion2.Aion2Client{kr, tw} {
 		res, err := c.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a", ServerID: 1001, RaceID: 1, Page: 1, Size: 20})
 		if err != nil {
 			log.Fatal(err)

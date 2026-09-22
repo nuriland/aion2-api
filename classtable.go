@@ -4,6 +4,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	classTableCacheTTL = 24 * time.Hour // How stale the class table and the item index may get
+	itemIndexCacheTTL  = 24 * time.Hour // How stale the item index may get
 )
 
 // classTable joins the two ideas of a class. Class.ID (2 = Gladiator) is what callers hold.
@@ -19,23 +25,29 @@ type classTable struct {
 //
 // A pcdata row naming a class the class list lacks is skipped.
 func newClassTable(classes []Class, pcs []pcRow) *classTable {
-	t := &classTable{
-		byID:   make(map[int]Class, len(classes)),
-		byPcID: make(map[int]Class, len(pcs)),
-		pcIDs:  make(map[int][]int, len(classes)),
-	}
-	bySlug := make(map[string]Class, len(classes))
+	var (
+		byID   = make(map[int]Class, len(classes))
+		byPcID = make(map[int]Class, len(pcs))
+		pcIDs  = make(map[int][]int, len(classes))
+		bySlug = make(map[string]Class, len(classes))
+
+		ct = classTable{
+			byID:   byID,
+			byPcID: byPcID,
+			pcIDs:  pcIDs,
+		}
+	)
 	for _, class := range classes {
-		t.byID[class.ID] = class
+		byID[class.ID] = class
 		bySlug[strings.ToUpper(class.Name)] = class
 	}
 	for _, pc := range pcs {
 		if class, ok := bySlug[pc.ClassName]; ok {
-			t.byPcID[pc.ID] = class
-			t.pcIDs[class.ID] = append(t.pcIDs[class.ID], pc.ID)
+			byPcID[pc.ID] = class
+			pcIDs[class.ID] = append(pcIDs[class.ID], pc.ID)
 		}
 	}
-	return t
+	return &ct
 }
 
 func (t *classTable) knows(pcIDs []int) bool {
@@ -47,8 +59,7 @@ func (t *classTable) knows(pcIDs []int) bool {
 	return true
 }
 
-// pcIDParam is the pcId query value selecting every combination of the given
-// classes: "5,6,7,8" for Gladiator.
+// pcIDParam is the pcId query value selecting every combination of the given classes: "5,6,7,8" for Gladiator.
 func (t *classTable) pcIDParam(classIDs []int) (string, error) {
 	var ids []string
 	for _, classID := range classIDs {

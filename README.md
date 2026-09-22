@@ -3,8 +3,8 @@
 ```go
 import aion2 "github.com/nuriland/aion2-api"
 
-kr, _ := aion2.New(aion2.Config{Region: aion2.RegionKR, Locale: aion2.LocaleEN})
-tw, _ := aion2.New(aion2.Config{Region: aion2.RegionTW})
+kr, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionKR, Locale: aion2.LocaleEN})
+tw, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionTW})
 ```
 
 ## Servers and classes

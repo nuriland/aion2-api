@@ -1,79 +1,114 @@
 package aion2
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
-)
+	"time"
 
-// Locale changes labels, never the backend.
-// LocaleEN on KR still returns KR servers with Korean names.
-type Locale string
+	"github.com/nuriland/aion2-api/internal/httpx"
+)
 
 const (
-	LocaleKO   Locale = "ko"    // Korean
-	LocaleZHTW Locale = "zh-TW" // Taiwanese
-	LocaleEN   Locale = "en"    // English
+	defaultRateLimit     = 5                // Requests per second, evenly spaced
+	defaultCrawlMaxPages = 300              // Fuse for the item index crawl; the catalog is ~60 pages
+	defaultCrawlPageSize = 200              // Items per page to crawl for the item index
+	defaultCrawlPause    = 1 * time.Second  // Pause between crawling item pages
+	defaultTimeout       = 15 * time.Second // Default timeout for HTTP requests
+
+	defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
 )
 
-// Region is the region of the AION 2 website, not the language
-type Region string
+// @TODO: documentation
+type ConfigOpts struct {
+	Region Region
+	Locale Locale
 
-const (
-	RegionKR     Region = "kr"
-	RegionTW     Region = "tw"
-	RegionGlobal Region = "global" // reserved
-)
+	CrawlPageSize int
+	CrawlMaxPages int
+	CrawlPause    time.Duration
+
+	UserAgent string
+	RateLimit float64
+
+	HTTPClient *http.Client
+	Logger     *slog.Logger
+}
 
 type Config struct {
-	Region Region
-	Locale Locale // default: the region's own language
+	crawlPageSize int
+	crawlMaxPages int
+	crawlPause    time.Duration
 
-	HTTPClient *http.Client // default: a 15s timeout
-	UserAgent  string       // default: a browser's; NC turns some bots away with 403
-	BaseURL    string       // replaces the origin only, region path prefixes still apply
-	RateLimit  float64      // requests per second, evenly spaced
+	httpClient *httpx.Client
+	logger     *slog.Logger
 
-	// Logger receives region, path and status for each request
-	Logger *slog.Logger
+	gameRegionConfig
 }
 
-// site is one region's deployment of the AION 2 website
-type site struct {
+type gameRegionConfig struct {
 	region Region
-	origin string
+	locale Locale // default: the region's own language
 
-	apiPrefix  string
-	dictPrefix string
+	baseURL    string // replaces the origin only, region path prefixes still apply
+	apiPrefix  string // prefix for the API
+	dictPrefix string // prefix for the dictionary
 
-	defaultLang Locale
-	rankings    bool // no region serves ranking data; see Rankings
+	defaultLang Locale // default: the region's own language
+	rankings    bool   // no region serves ranking data; see Rankings
 }
 
-// KR had a dictionary at /aion2/v2.0 until NC retired it; every path under it
-// now answers 200 {}. /api/gameconst/item is older still and answers 400.
-var sites = map[Region]site{
-	RegionKR: {
-		region:      RegionKR,
-		origin:      "https://aion2.plaync.com",
-		defaultLang: LocaleKO,
-	},
-	RegionTW: {
-		region:      RegionTW,
-		origin:      "https://tw.ncsoft.com",
-		apiPrefix:   "/aion2",
-		dictPrefix:  "/aion2_tw/v2.0",
-		defaultLang: LocaleZHTW,
-	},
-}
-
-func (s site) supports(f Feature) bool {
-	switch f {
-	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch:
-		return true
-	case FeatureItems:
-		return s.dictPrefix != ""
-	case FeatureRankings:
-		return s.rankings
+func NewConfig(opts ConfigOpts) (Config, error) {
+	if opts.Region == "" {
+		return Config{}, fmt.Errorf("region is required")
 	}
-	return false
+	gameRegion, ok := regions[opts.Region]
+	if !ok {
+		return Config{}, fmt.Errorf("invalid region: %s", opts.Region)
+	}
+
+	if opts.UserAgent == "" {
+		opts.UserAgent = defaultUserAgent
+	}
+	if opts.RateLimit <= 0 {
+		opts.RateLimit = defaultRateLimit
+	}
+	if opts.CrawlPageSize <= 0 {
+		opts.CrawlPageSize = defaultCrawlPageSize
+	}
+	if opts.CrawlMaxPages <= 0 {
+		opts.CrawlMaxPages = defaultCrawlMaxPages
+	}
+	if opts.CrawlPause <= 0 {
+		opts.CrawlPause = defaultCrawlPause
+	}
+	if opts.HTTPClient == nil {
+		opts.HTTPClient = &http.Client{Timeout: defaultTimeout}
+	}
+
+	if opts.Locale == "" {
+		opts.Locale = gameRegion.defaultLang
+	}
+	return Config{
+		crawlPageSize: opts.CrawlPageSize,
+		crawlMaxPages: opts.CrawlMaxPages,
+		crawlPause:    opts.CrawlPause,
+		logger:        opts.Logger,
+		httpClient: &httpx.Client{
+			HTTP:       opts.HTTPClient,
+			UserAgent:  opts.UserAgent,
+			Limiter:    httpx.NewLimiter(time.Duration(float64(time.Second) / opts.RateLimit)),
+			RetryPause: httpx.JitteredPause,
+			Logger:     opts.Logger,
+		},
+		gameRegionConfig: gameRegionConfig{
+			region:      opts.Region,
+			locale:      opts.Locale,
+			baseURL:     gameRegion.origin,
+			apiPrefix:   gameRegion.apiPrefix,
+			dictPrefix:  gameRegion.dictPrefix,
+			defaultLang: gameRegion.defaultLang,
+			rankings:    gameRegion.rankings,
+		},
+	}, nil
 }

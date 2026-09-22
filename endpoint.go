@@ -3,7 +3,7 @@ package aion2
 type endpoint struct {
 	feature Feature
 	path    string
-	dict    bool // if true, under the item dictionary's prefix rather than the site's for some reason
+	dict    bool // if true, search under the item dictionary's prefix rather than the site's for some reason
 }
 
 var (

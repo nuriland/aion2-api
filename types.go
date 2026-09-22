@@ -5,6 +5,25 @@ import (
 	"fmt"
 )
 
+// Locale changes labels, never the backend.
+// LocaleEN on KR still returns KR servers with Korean names.
+type Locale string
+
+const (
+	LocaleKO   Locale = "ko"    // Korean
+	LocaleZHTW Locale = "zh-TW" // Taiwanese
+	LocaleEN   Locale = "en"    // English
+)
+
+// Region is the region of the AION 2 website, not the language
+type Region string
+
+const (
+	RegionKR     Region = "kr"
+	RegionTW     Region = "tw"
+	RegionGlobal Region = "global" // reserved
+)
+
 // Server is one world NC serves, with a unique name and ID
 type Server struct {
 	Region    Region `json:"region"`
@@ -375,4 +394,31 @@ func (l *Lines) UnmarshalJSON(data []byte) error {
 		*l = append(*l, row.Desc)
 	}
 	return nil
+}
+
+// @TODO: move elsewhere
+type gameRegion struct {
+	region      Region
+	origin      string
+	apiPrefix   string
+	dictPrefix  string
+	defaultLang Locale
+	rankings    bool
+}
+
+var regions = map[Region]gameRegion{
+	RegionKR: {
+		region:      RegionKR,
+		origin:      "https://aion2.plaync.com",
+		defaultLang: LocaleKO,
+		rankings:    false,
+	},
+	RegionTW: {
+		region:      RegionTW,
+		origin:      "https://tw.ncsoft.com",
+		apiPrefix:   "/aion2",
+		dictPrefix:  "/aion2_tw/v2.0",
+		defaultLang: LocaleZHTW,
+		rankings:    false,
+	},
 }
