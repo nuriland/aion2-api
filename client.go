@@ -92,6 +92,7 @@ func (c *client) Servers(ctx context.Context) ([]Server, error) {
 		if server.ServerID == 0 || server.Name == "" {
 			return nil, c.drift(serversEndpoint, "serverId or serverName must be non-zero")
 		}
+		server.Region = c.config.region // 1001 is a different world on KR and TW
 	}
 	return raw.ServerList, nil
 }

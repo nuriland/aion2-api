@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check fmt vet test test-v cover probe
+.PHONY: help check fmt vet test test-v cover e2e probe
 
 help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-8s\033[0m %s\n", $$1, $$2}'
@@ -22,6 +22,9 @@ cover: ## coverage summary, per function
 	go test . ./internal/... -count=1 -coverprofile=cover.out
 	@go tool cover -func=cover.out | tail -1
 	@echo "  open it: go tool cover -html=cover.out"
+
+e2e: ## ~15 real requests against NC, both regions
+	AION2_E2E=1 go test . -run E2E -count=1 -v -timeout 5m
 
 probe: ## run the example end to end
 	go run ./examples/probe $(ARGS)
