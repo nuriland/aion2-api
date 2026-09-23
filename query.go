@@ -54,6 +54,19 @@ func (q ItemSearch) query() url.Values {
 	return v
 }
 
+// query is the official ranking page's own filters. rankingType is the class, 0 for all.
+func (q RankingQuery) query() url.Values {
+	v := url.Values{
+		"rankingContentsType": {strconv.Itoa(int(q.ContentsType))},
+		"rankingType":         {strconv.Itoa(q.ClassID)},
+		"serverId":            {strconv.Itoa(q.ServerID)},
+	}
+	if q.Name != "" {
+		v.Set("searchCharacterName", q.Name)
+	}
+	return v
+}
+
 // dictLocale is the full tag the dictionary wants where the API takes a short one
 func dictLocale(l Locale) string {
 	switch l {

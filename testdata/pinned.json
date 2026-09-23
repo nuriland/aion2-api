@@ -1,0 +1,32 @@
+{
+    "noticesList": [
+        {
+            "articleMeta": {
+                "id": "6a43c4d8e2307f62bca6bb24",
+                "title": "[안내] AION2 챕터 1 콘텐츠 운영 계획 사전 안내",
+                "summary": "안녕하세요, 아이온2입니다.",
+                "thumbnailUrl": "https://fizz-download.playnccdn.com/lg/file/aion2/download_thumbnail/196c44cd6b0-a5df7fa3-6799-415c-ada7-a0cf1c08f230",
+                "timestamps": {
+                    "postedEpoch": 1782826200,
+                    "updatedEpoch": 1782826231
+                },
+                "writer": {
+                    "loginUser": {
+                        "admin": true
+                    },
+                    "gameUser": {
+                        "gameServerId": "",
+                        "gameCharacterId": "",
+                        "gameCharacterName": "",
+                        "gameCharacterOriginId": null
+                    }
+                },
+                "reactions": {
+                    "viewCount": 74105,
+                    "commentCount": 0
+                }
+            }
+        }
+    ],
+    "hasMore": false
+}

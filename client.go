@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"iter"
+	"math"
 	"net/url"
 	"slices"
 	"strconv"
@@ -23,8 +25,8 @@ type Aion2Client interface {
 	Classes(context.Context) ([]Class, error)
 
 	SearchCharacters(context.Context, CharacterSearch) (*Paged[CharacterSummary], error)
+	Characters(context.Context, CharacterSearch) iter.Seq2[CharacterSummary, error]
 	Character(context.Context, CharacterRef) (*Character, error)
-	CharacterByID(context.Context, int) (*Character, error)
 
 	Equipment(context.Context, CharacterRef) (*Equipment, error)
 	EquippedItem(context.Context, CharacterRef, EquipSlot) (*EquippedItem, error)
@@ -32,6 +34,7 @@ type Aion2Client interface {
 	Daevanion(context.Context, CharacterRef, int) (*DaevanionBoard, error)
 
 	SearchItems(context.Context, ItemSearch) (*Paged[ItemSummary], error)
+	Items(context.Context, ItemSearch) iter.Seq2[ItemSummary, error]
 	Item(context.Context, int) (*Item, error)
 	ItemGrades(context.Context) ([]ItemGrade, error)
 	ItemCategories(context.Context) ([]ItemCategory, error)
@@ -58,11 +61,15 @@ func New(cfgOpts ConfigOpts) (*client, error) {
 	if err != nil {
 		return nil, err
 	}
+	return newClient(cfg), nil
+}
+
+func newClient(cfg Config) *client {
 	return &client{
 		config:    cfg,
 		classes:   cache.Value[*classTable]{TTL: cacheTTL},
 		itemIndex: cache.Value[map[int]Item]{TTL: cacheTTL},
-	}, nil
+	}
 }
 
 // Region returns the client's initialised region
@@ -71,17 +78,14 @@ func (c *client) Region() Region { return c.config.region }
 // Locale returns the client's initialised locale
 func (c *client) Locale() Locale { return c.config.locale }
 
-// Supports checks if the client's initialised region supports the given feature in the API
-//
-// @REVIEW: maybe not a static check, but rather do a live call to the API to check if the feature is supported?
+// Supports reports whether the region has the backend a feature calls. It says nothing about the data behind it:
+// Rankings answers ErrNoSeason on both regions while NC keeps the public boards off
 func (c *client) Supports(f Feature) bool {
 	switch f {
-	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch:
+	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch, FeatureRankings:
 		return true
 	case FeatureItems:
 		return c.config.dictPrefix != ""
-	case FeatureRankings:
-		return c.config.rankings
 	case FeatureNews:
 		return c.config.communityURL != ""
 	}
@@ -184,6 +188,17 @@ func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Pag
 	}, nil
 }
 
+// Characters walks every match, page after page. Size is the rows a page asks for, 200 unless set
+func (c *client) Characters(ctx context.Context, cs CharacterSearch) iter.Seq2[CharacterSummary, error] {
+	if cs.Size <= 0 {
+		cs.Size = 200
+	}
+	return pages(func(page int) (*Paged[CharacterSummary], error) {
+		cs.Page = page
+		return c.SearchCharacters(ctx, cs)
+	})
+}
+
 // Character returns the profile of a character on a given server
 func (c *client) Character(ctx context.Context, ref CharacterRef) (*Character, error) {
 	query, ref, err := c.characterQuery(characterEndpoint, ref)
@@ -231,10 +246,6 @@ func (c *client) characterQuery(ep endpoint, ref CharacterRef) (url.Values, Char
 		"serverId":    {strconv.Itoa(ref.ServerID)},
 		"characterId": {ref.CharacterID},
 	}, ref, nil
-}
-
-func (c *client) CharacterByID(ctx context.Context, id int) (*Character, error) {
-	return nil, c.apiError(characterEndpoint, ErrNotImplemented)
 }
 
 // Equipment returns the equipment of a character on a given server
@@ -371,6 +382,17 @@ func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSumm
 			LastPage: paging.LastPage,
 		},
 	}, nil
+}
+
+// Items walks every match, page after page. Size is the rows a page asks for, 200 unless set
+func (c *client) Items(ctx context.Context, q ItemSearch) iter.Seq2[ItemSummary, error] {
+	if q.Size <= 0 {
+		q.Size = 200
+	}
+	return pages(func(page int) (*Paged[ItemSummary], error) {
+		q.Page = page
+		return c.SearchItems(ctx, q)
+	})
 }
 
 // @TODO: refac
@@ -511,8 +533,44 @@ func (c *client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
 	return categories, nil
 }
 
+// Rankings returns one board of the official ranking page, per server. NC has kept the public boards off
+// since 2026, so every board answers ErrNoSeason until they return
 func (c *client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, error) {
-	return nil, c.apiError(rankingsEndpoint, ErrNotImplemented)
+	if q.ContentsType == 0 || q.ServerID <= 0 {
+		return nil, c.errorf(rankingsEndpoint, ErrBadRequest, "RankingQuery needs ContentsType and ServerID")
+	}
+	query := q.query()
+	query.Set("lang", string(c.config.locale))
+
+	var raw rankingsResponse
+	if err := c.get(ctx, rankingsEndpoint, query, &raw); err != nil {
+		return nil, err
+	}
+	if raw.RankingList == nil {
+		return nil, c.drift(rankingsEndpoint, "rankingList")
+	}
+	if raw.Season == nil {
+		return nil, c.errorf(rankingsEndpoint, ErrNoSeason, "board %d on server %d", q.ContentsType, q.ServerID)
+	}
+
+	entries := make([]RankingEntry, len(raw.RankingList))
+	for i, body := range raw.RankingList {
+		var row rankingRow
+		if err := c.decode(rankingsEndpoint, body, &row); err != nil {
+			return nil, err
+		}
+		if row.CharacterID == "" || row.CharacterName == "" {
+			return nil, c.drift(rankingsEndpoint, "characterId or characterName on a row")
+		}
+		entry := row.RankingEntry
+		entry.Ref = CharacterRef{ServerID: q.ServerID, CharacterID: decodeCharacterID(row.CharacterID)}
+		entry.Raw = body
+		if row.RankChange == math.MaxInt32 { // NC's marker for a first appearance on the board
+			entry.IsNew, entry.RankChange = true, 0
+		}
+		entries[i] = entry
+	}
+	return &RankingPage{Region: c.config.region, Season: raw.Season, Entries: entries}, nil
 }
 
 // Posts returns a board's latest posts, newest first. Upstream serves ten and does not page.

@@ -1,5 +1,7 @@
 # aion2
 
+Unofficial client for the AION 2 website's JSON API. Supports KR and TW. Global coming as soon as the API is available.
+
 ```go
 import aion2 "github.com/nuriland/aion2-api"
 
@@ -32,6 +34,13 @@ item, _  := tw.EquippedItem(ctx, ref, eq.Slots[0])
 board, _ := tw.Daevanion(ctx, ref, ch.Daevanion[0].ID)
 
 fmt.Println(ch.Profile.Name, ch.Profile.CombatPower, len(eq.Slots))
+
+for hit, err := range tw.Characters(ctx, aion2.CharacterSearch{Keyword: "a", RaceID: 1}) {
+    if err != nil {
+        return err
+    }
+    fmt.Println(hit.Name, hit.Level)
+}
 ```
 
 Got a profile URL instead? Paste the id straight in:
@@ -57,10 +66,29 @@ page, _ := tw.SearchItems(ctx, aion2.ItemSearch{
     Size:        200,
 })
 
-item, _ := tw.Item(ctx, 110120001) // first call crawls the catalog, ~1 min. after that it's instant
+for it, err := range tw.Items(ctx, aion2.ItemSearch{Grade: "Epic", Category: "Equip_Weapon"}) {
+    if err != nil {
+        return err
+    }
+    fmt.Println(it.ID, it.Name)
+}
+
+item, _ := tw.Item(ctx, 110120001) // first call crawls the catalog once
 
 grades, _ := tw.ItemGrades(ctx)         // the ids ItemSearch.Grade takes, with localized names
 categories, _ := tw.ItemCategories(ctx) // same for Category / SubCategory
+```
+
+## Rankings
+
+NC took the public boards down in 2026 and until they return, every board answers `ErrNoSeason`.
+
+```go
+board, err := kr.Rankings(ctx, aion2.RankingQuery{ContentsType: aion2.RankingAbyss, ServerID: 1001})
+if errors.Is(err, aion2.ErrNoSeason) {
+    return nil
+}
+fmt.Println(board.Season.SeasonNo, len(board.Entries))
 ```
 
 ## News

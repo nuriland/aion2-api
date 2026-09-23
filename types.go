@@ -64,7 +64,7 @@ type CharacterProfile struct {
 	Gender      string       `json:"genderName"` // localized
 	RaceID      int          `json:"raceId"`
 	ServerName  string       `json:"serverName"`
-	GuildName   string       `json:"regionName"`
+	GuildName   string       `json:"regionName"` // NC files the guild under regionName; its own schema calls it 길드 명. No guild id is sent
 	CombatPower int          `json:"combatPower"`
 	TitleName   string       `json:"titleName"`
 	ImageURL    string       `json:"profileImage"`
@@ -144,7 +144,7 @@ type CharacterSummary struct {
 type Equipment struct {
 	Region   Region       `json:"region"`
 	Ref      CharacterRef `json:"ref"`
-	Slots    []EquipSlot  `json:"slots"`
+	Slots    []EquipSlot  `json:"slots"` // worn gear, Arcana included, slot pos 41 and up, slot name Arcana1, Arcana2, ...
 	Skins    []EquipSlot  `json:"skins"`
 	Pet      *Pet         `json:"pet"`
 	Wing     *Wing        `json:"wing"`

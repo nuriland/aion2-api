@@ -1,40 +1,39 @@
 {
     "contents": [
         {
-            "id": 110120001,
-            "name": "應龍王巨劍",
-            "image": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_GS_0110_T05.png",
+            "id": 110120003,
+            "name": "盧德萊絕滅刀",
+            "image": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_GS_0108_T06.png",
             "grade": "Epic",
             "options": [
                 "暴擊 150",
-                "PVE傷害增幅 5%",
                 "命中 100",
                 "格擋 150",
-                "攻擊力 463 ~ 627"
+                "攻擊力 421 ~ 569"
             ],
             "favorite": false,
-            "tradable": true,
+            "tradable": false,
             "categoryName": "巨劍"
         },
         {
-            "id": 110120002,
-            "name": "夔龍王巨劍",
-            "image": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_GS_0110_T05.png",
+            "id": 110120004,
+            "name": "守衛者軍團長巨劍",
+            "image": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_GS_Moon_01.png",
             "grade": "Epic",
             "options": [
                 "暴擊 150",
-                "PVE傷害增幅 5%",
+                "PVP傷害增幅 10%",
                 "命中 100",
                 "格擋 150",
                 "攻擊力 463 ~ 627"
             ],
             "favorite": false,
-            "tradable": true,
+            "tradable": false,
             "categoryName": "巨劍"
         }
     ],
     "pagination": {
-        "page": 1,
+        "page": 2,
         "size": 2,
         "lastPage": 2,
         "total": 4,

@@ -79,6 +79,12 @@ func main() {
 			c.Region(), res.Page.Total, ch.Profile.Name, ch.Profile.Level, ch.Profile.ClassName, ch.Profile.CombatPower, len(eq.Slots))
 	}
 
+	notes, err := kr.Posts(ctx, aion2.BoardPatchNotes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("latest KR patch notes: %s (%s)\n", notes[0].Title, notes[0].PostedAt.Format("2006-01-02"))
+
 	if *crawl {
 		start := time.Now()
 		it, err := tw.Item(ctx, 110120001)

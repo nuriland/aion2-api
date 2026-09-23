@@ -34,7 +34,7 @@ func newE2EClient(t *testing.T, region Region) Aion2Client {
 
 func findCharacter(t *testing.T, c Aion2Client) CharacterSummary {
 	t.Helper()
-	res, err := c.SearchCharacters(t.Context(), CharacterSearch{Keyword: "a", RaceID: 1, ServerID: 1001, Size: 10})
+	res, err := c.SearchCharacters(t.Context(), CharacterSearch{Keyword: "a", RaceID: 1, ServerID: 1001, Size: 200}) // 200 rows so the pick is max level
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,6 +158,19 @@ func TestE2EEquipment(t *testing.T) {
 			if item.Name != eq.Slots[0].Name {
 				t.Fatalf("got item %q, want %q", item.Name, eq.Slots[0].Name)
 			}
+
+			// Arcana are slots 41 and up, and the tooltip endpoint answers for them like any other slot
+			arcana := slices.IndexFunc(eq.Slots, func(s EquipSlot) bool { return s.SlotPos >= 41 })
+			if arcana < 0 {
+				t.Fatalf("%s wears no Arcana among %d slots", hit.Name, len(eq.Slots))
+			}
+			card, err := c.EquippedItem(t.Context(), hit.Ref, eq.Slots[arcana])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if card.Name != eq.Slots[arcana].Name {
+				t.Fatalf("got arcana %q, want %q", card.Name, eq.Slots[arcana].Name)
+			}
 		})
 	}
 }
@@ -198,6 +211,44 @@ func TestE2ESearchItems(t *testing.T) {
 			}
 			if page.Items[0].ID != 110120001 {
 				t.Fatalf("got first item %d, want 110120001", page.Items[0].ID)
+			}
+		})
+	}
+}
+
+func TestE2EItems(t *testing.T) {
+	c := newE2EClient(t, RegionTW)
+	q := ItemSearch{Grade: "Epic", Category: "Equip_Weapon", SubCategory: "Greatsword", Size: 5}
+
+	first, err := c.SearchItems(t.Context(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Page.LastPage < 2 {
+		t.Fatalf("only %d page of epic greatswords; the walk needs a filter that pages", first.Page.LastPage)
+	}
+
+	walked := 0
+	for _, err := range c.Items(t.Context(), q) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		walked++
+	}
+	if walked != first.Page.Total {
+		t.Fatalf("walked %d items, want %d", walked, first.Page.Total)
+	}
+}
+
+func TestE2ERankings(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			// NC keeps the public boards off. The day this fails with a page, save its row as testdata/ranking.json
+			_, err := c.Rankings(t.Context(), RankingQuery{ContentsType: RankingAbyss, ServerID: 1001})
+			if !errors.Is(err, ErrNoSeason) {
+				t.Fatalf("got %v, want ErrNoSeason", err)
 			}
 		})
 	}

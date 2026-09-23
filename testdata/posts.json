@@ -1,0 +1,56 @@
+{
+    "contentList": [
+        {
+            "id": "6ab2d738a279104f7d9d5d5b",
+            "title": "[안내] 9/23(수) 업데이트 노트",
+            "summary": "안녕하세요, 아이온2입니다.",
+            "thumbnailUrl": "https://fizz-download.playnccdn.com/lg/file/aion2/download_thumbnail/196c44cd6b0-a5df7fa3-6799-415c-ada7-a0cf1c08f230",
+            "timestamps": {
+                "postedEpoch": 1790105400,
+                "updatedEpoch": 1790122495
+            },
+            "writer": {
+                "loginUser": {
+                    "admin": true
+                },
+                "gameUser": {
+                    "gameServerId": "",
+                    "gameCharacterId": "",
+                    "gameCharacterName": "",
+                    "gameCharacterOriginId": null
+                }
+            },
+            "reactions": {
+                "viewCount": 40326,
+                "commentCount": 0
+            }
+        },
+        {
+            "id": "6aa99cb8a279104f7d9d5c34",
+            "title": "[안내] 9/16(수) 업데이트 노트 (수정 9/18 12:50)",
+            "summary": "안녕하세요, 아이온2입니다.",
+            "thumbnailUrl": "https://fizz-download.playnccdn.com/lg/file/aion2/download_thumbnail/196c44cd6b0-a5df7fa3-6799-415c-ada7-a0cf1c08f230",
+            "timestamps": {
+                "postedEpoch": 1789500600,
+                "updatedEpoch": 1789703458
+            },
+            "writer": {
+                "loginUser": {
+                    "admin": true
+                },
+                "gameUser": {
+                    "gameServerId": "",
+                    "gameCharacterId": "",
+                    "gameCharacterName": "",
+                    "gameCharacterOriginId": null
+                }
+            },
+            "reactions": {
+                "viewCount": 61383,
+                "commentCount": 0
+            }
+        }
+    ],
+    "hasMore": true,
+    "searchCount": 0
+}

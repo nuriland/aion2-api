@@ -59,6 +59,12 @@ type equipmentResponse struct {
 	} `json:"skill"`
 }
 
+// GET /api/ranking/list
+type rankingsResponse struct {
+	Season      *Season           `json:"season"`      // null: NC has no public season running
+	RankingList []json.RawMessage `json:"rankingList"` // kept raw for RankingEntry.Raw
+}
+
 // GET {dictPrefix}/dict/search/item
 type itemsResponse struct {
 	Contents   []json.RawMessage `json:"contents"` // kept raw for Item.Raw
@@ -79,6 +85,12 @@ type profileRow struct {
 	CharacterProfile
 	CharacterID string `json:"characterId"`
 	PcID        int    `json:"pcId"`
+}
+
+// rankingRow is a board row. Ref is built from characterId and the query's server.
+type rankingRow struct {
+	RankingEntry
+	CharacterID string `json:"characterId"` // percent-encoded, like search results
 }
 
 // pcRow is one class x race x gender combination.

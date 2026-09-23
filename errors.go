@@ -16,7 +16,7 @@ var (
 	ErrUpstream           = errors.New("aion2: upstream error")
 	ErrBadRequest         = errors.New("aion2: upstream rejected params")
 	ErrRateLimited        = errors.New("aion2: rate limited")
-	ErrNotImplemented     = errors.New("aion2: not implemented")
+	ErrNoSeason           = errors.New("aion2: no ranking season")
 	ErrUnsupportedRegion  = errors.New("aion2: unsupported region")
 	ErrFeatureUnavailable = errors.New("aion2: feature unavailable on this region")
 )

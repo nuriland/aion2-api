@@ -1,0 +1,30 @@
+[
+    {
+        "id": "Equip_Weapon",
+        "name": "Weapons",
+        "child": [
+            {
+                "id": "Sword",
+                "name": "Longsword"
+            },
+            {
+                "id": "Greatsword",
+                "name": "Greatsword"
+            }
+        ]
+    },
+    {
+        "id": "Equip_Armor",
+        "name": "Armor",
+        "child": [
+            {
+                "id": "Helmet",
+                "name": "Helm"
+            },
+            {
+                "id": "Shoulder",
+                "name": "Pauldrons"
+            }
+        ]
+    }
+]

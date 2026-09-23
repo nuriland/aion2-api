@@ -1,0 +1,60 @@
+{
+    "friendRankingList": null,
+    "myRanking": null,
+    "rankingList": [
+        {
+            "rank": 1,
+            "prevRank": 0,
+            "rankChange": 2147483647,
+            "characterId": "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789aCA%3D",
+            "characterName": "Aion",
+            "classId": 2,
+            "className": "검성",
+            "raceId": 1,
+            "raceName": "천족",
+            "guildName": "용",
+            "point": 1234.5,
+            "profileImage": "https://profileimg.plaync.com/aion2/1001/Aion.png",
+            "gradeId": 1,
+            "gradeName": "Legend",
+            "gradeIcon": "https://assets.playnccdn.com/static-aion2/ranking/img/grade_legend.png",
+            "extraDataMap": {
+                "killCount": 10,
+                "deathCount": 2,
+                "assistCount": 5
+            }
+        },
+        {
+            "rank": 2,
+            "prevRank": 3,
+            "rankChange": 1,
+            "characterId": "ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210bCA%3D",
+            "characterName": "Bion",
+            "classId": 5,
+            "className": "살성",
+            "raceId": 1,
+            "raceName": "천족",
+            "guildName": "",
+            "point": 1200,
+            "profileImage": "",
+            "gradeId": 2,
+            "gradeName": "Unique",
+            "gradeIcon": "",
+            "extraDataMap": {
+                "killCount": 7,
+                "deathCount": 4,
+                "assistCount": 1
+            }
+        }
+    ],
+    "season": {
+        "id": 1,
+        "rankingContentsType": 1,
+        "state": 1,
+        "groupName": "S1",
+        "seasonNo": 1,
+        "prevSeasonNo": 0,
+        "startDate": "2026-01-01T00:00:00",
+        "endDate": "2026-03-31T23:59:59"
+    }
+}

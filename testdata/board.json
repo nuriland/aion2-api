@@ -1,0 +1,48 @@
+{
+    "board": {
+        "id": "682d9d40cea17503d3ca4a0c",
+        "meta": {
+            "version": "0.0.3"
+        },
+        "boardType": "Normal",
+        "boardState": "published",
+        "hierarchy": {
+            "root": "",
+            "parent": "",
+            "friend": "",
+            "subTree": {
+                "treeId": "",
+                "treeRoot": ""
+            }
+        },
+        "boardConfigRef": "682d9d40cea17503d3ca4a0b",
+        "snow": {
+            "rootBoardId": 0,
+            "parentBoardId": 0,
+            "boardId": 629
+        },
+        "boardName": "綜合討論",
+        "boardNameI18N": {
+            "zh-TW": ""
+        },
+        "boardAlias": "free_zh",
+        "boardUrlPattern": "https://tw.ncsoft.com/aion2/board/free/view?articleId={articleId}",
+        "boardSdkUrlPattern": "",
+        "metaTags": [
+            "allBoard",
+            "lobby",
+            "tw",
+            "searchAllowed"
+        ],
+        "language": "zh-TW",
+        "weight": 0,
+        "serviceReserved": {
+            "reserved1": {},
+            "reserved2": {},
+            "reserved3": {},
+            "reserved4": {},
+            "serviceReserved": {}
+        },
+        "docMetaVersion": "0.0.3"
+    }
+}

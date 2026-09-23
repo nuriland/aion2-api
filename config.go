@@ -58,7 +58,6 @@ type gameRegion struct {
 	communityURL string // the boards, on their own domain
 	boardSuffix  string // NC suffixes every board alias with the region's language
 	defaultLang  Locale
-	rankings     bool // no region serves ranking data; see Rankings
 }
 
 var regions = map[Region]gameRegion{
