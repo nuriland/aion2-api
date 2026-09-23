@@ -66,11 +66,11 @@ categories, _ := tw.ItemCategories(ctx) // same for Category / SubCategory
 ## News
 
 ```go
-posts, _ := kr.Posts(ctx, aion2.BoardDevNews) // the CM team's weekly update news, also BoardUpdates, BoardNotices
-post, _ := kr.Post(ctx, aion2.BoardDevNews, posts[0].ID)
+notes, _ := kr.Posts(ctx, aion2.BoardPatchNotes) // also BoardDevNews (the CM team's weekly news), BoardNotices
+latest, _ := kr.Post(ctx, aion2.BoardPatchNotes, notes[0].ID) // .HTML is the body
 pinned, _ := kr.PinnedPosts(ctx, aion2.BoardNotices)
 
-fmt.Println(post.Title, post.PostedAt, len(post.HTML))
+fmt.Println(latest.Title, latest.PostedAt, len(latest.HTML))
 ```
 
 ### Player boards 

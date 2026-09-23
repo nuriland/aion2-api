@@ -415,9 +415,9 @@ func (l *Lines) UnmarshalJSON(data []byte) error {
 type Board string
 
 const (
-	BoardNotices Board = "notice"   // announcements
-	BoardUpdates Board = "update"   // patch notes
-	BoardDevNews Board = "cm_story" // the CM team's weekly update news
+	BoardNotices    Board = "notice"   // announcements
+	BoardPatchNotes Board = "update"   // one post per weekly maintenance
+	BoardDevNews    Board = "cm_story" // the CM team's weekly update news
 
 	BoardFree    Board = "free"           // general discussion
 	BoardRecruit Board = "member_recruit" // legion recruitment

@@ -237,7 +237,7 @@ func TestE2EPosts(t *testing.T) {
 				t.Fatal("Supports(FeatureNews) = false")
 			}
 
-			for _, board := range []Board{BoardDevNews, BoardUpdates, BoardNotices} {
+			for _, board := range []Board{BoardPatchNotes, BoardDevNews, BoardNotices} {
 				posts, err := c.Posts(t.Context(), board)
 				if err != nil {
 					t.Fatal(board, err)
