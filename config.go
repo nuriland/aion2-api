@@ -15,7 +15,9 @@ const (
 	defaultCrawlPageSize = 200              // Items per page to crawl for the item index
 	defaultCrawlPause    = 1 * time.Second  // Pause between crawling item pages
 	defaultTimeout       = 15 * time.Second // Default timeout for HTTP requests
+	cacheTTL             = 24 * time.Hour   // How stale the class table and the item index may get
 
+	portraitOrigin   = "https://profileimg.plaync.com" // character portraits, every region
 	defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
 )
 
@@ -36,37 +38,55 @@ type ConfigOpts struct {
 }
 
 type Config struct {
+	gameRegion
+
+	region Region
+	locale Locale
+
 	crawlPageSize int
 	crawlMaxPages int
 	crawlPause    time.Duration
 
 	httpClient *httpx.Client
-	logger     *slog.Logger
-
-	gameRegionConfig
 }
 
-type gameRegionConfig struct {
-	region Region
-	locale Locale // default: the region's own language
+// gameRegion is one region's deployment of the AION 2 website: where its backends live and what it has
+type gameRegion struct {
+	origin       string // the site; the API lives under apiPrefix
+	apiPrefix    string
+	dictPrefix   string // the item dictionary; empty means no catalog
+	communityURL string // the boards, on their own domain
+	boardSuffix  string // NC suffixes every board alias with the region's language
+	defaultLang  Locale
+	rankings     bool // no region serves ranking data; see Rankings
+}
 
-	baseURL    string // replaces the origin only, region path prefixes still apply
-	apiPrefix  string // prefix for the API
-	dictPrefix string // prefix for the dictionary
-
-	defaultLang Locale // default: the region's own language
-	rankings    bool   // no region serves ranking data; see Rankings
+var regions = map[Region]gameRegion{
+	RegionKR: {
+		origin:       "https://aion2.plaync.com",
+		communityURL: "https://api-community.plaync.com/aion2",
+		boardSuffix:  "_ko",
+		defaultLang:  LocaleKO,
+	},
+	RegionTW: {
+		origin:       "https://tw.ncsoft.com",
+		apiPrefix:    "/aion2",
+		dictPrefix:   "/aion2_tw/v2.0",
+		communityURL: "https://api-tw-community.ncsoft.com/aion2_tw",
+		boardSuffix:  "_zh",
+		defaultLang:  LocaleZHTW,
+	},
 }
 
 func NewConfig(opts ConfigOpts) (Config, error) {
-	if opts.Region == "" {
-		return Config{}, fmt.Errorf("region is required")
-	}
-	gameRegion, ok := regions[opts.Region]
+	region, ok := regions[opts.Region]
 	if !ok {
-		return Config{}, fmt.Errorf("invalid region: %s", opts.Region)
+		return Config{}, fmt.Errorf("%w: %q", ErrUnsupportedRegion, opts.Region)
 	}
 
+	if opts.Locale == "" {
+		opts.Locale = region.defaultLang
+	}
 	if opts.UserAgent == "" {
 		opts.UserAgent = defaultUserAgent
 	}
@@ -86,29 +106,19 @@ func NewConfig(opts ConfigOpts) (Config, error) {
 		opts.HTTPClient = &http.Client{Timeout: defaultTimeout}
 	}
 
-	if opts.Locale == "" {
-		opts.Locale = gameRegion.defaultLang
-	}
 	return Config{
+		gameRegion:    region,
+		region:        opts.Region,
+		locale:        opts.Locale,
 		crawlPageSize: opts.CrawlPageSize,
 		crawlMaxPages: opts.CrawlMaxPages,
 		crawlPause:    opts.CrawlPause,
-		logger:        opts.Logger,
 		httpClient: &httpx.Client{
 			HTTP:       opts.HTTPClient,
 			UserAgent:  opts.UserAgent,
 			Limiter:    httpx.NewLimiter(time.Duration(float64(time.Second) / opts.RateLimit)),
 			RetryPause: httpx.JitteredPause,
 			Logger:     opts.Logger,
-		},
-		gameRegionConfig: gameRegionConfig{
-			region:      opts.Region,
-			locale:      opts.Locale,
-			baseURL:     gameRegion.origin,
-			apiPrefix:   gameRegion.apiPrefix,
-			dictPrefix:  gameRegion.dictPrefix,
-			defaultLang: gameRegion.defaultLang,
-			rankings:    gameRegion.rankings,
 		},
 	}, nil
 }

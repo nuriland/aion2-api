@@ -58,4 +58,26 @@ page, _ := tw.SearchItems(ctx, aion2.ItemSearch{
 })
 
 item, _ := tw.Item(ctx, 110120001) // first call crawls the catalog, ~1 min. after that it's instant
+
+grades, _ := tw.ItemGrades(ctx)         // the ids ItemSearch.Grade takes, with localized names
+categories, _ := tw.ItemCategories(ctx) // same for Category / SubCategory
 ```
+
+## News
+
+```go
+posts, _ := kr.Posts(ctx, aion2.BoardDevNews) // the CM team's weekly update news, also BoardUpdates, BoardNotices
+post, _ := kr.Post(ctx, aion2.BoardDevNews, posts[0].ID)
+pinned, _ := kr.PinnedPosts(ctx, aion2.BoardNotices)
+
+fmt.Println(post.Title, post.PostedAt, len(post.HTML))
+```
+
+### Player boards 
+
+```go
+posts, _ := tw.Posts(ctx, aion2.BoardFree) // also BoardRecruit, BoardTips, BoardMedia
+ch, _ := tw.Character(ctx, posts[0].Author.Ref)
+comments, _ := tw.Comments(ctx, aion2.BoardFree, posts[0].ID)
+```
+

@@ -3,8 +3,17 @@ package aion2
 type endpoint struct {
 	feature Feature
 	path    string
-	dict    bool // if true, search under the item dictionary's prefix rather than the site's for some reason
+	host    host
 }
+
+// host is which of NC's backends an endpoint lives on
+type host int
+
+const (
+	siteHost      host = iota // the game site -- characters, servers, and classes
+	dictHost                  // the item dictionary
+	communityHost             // the community boards
+)
 
 var (
 	serversEndpoint      = endpoint{feature: FeatureServers, path: "/api/gameinfo/servers"}
@@ -16,6 +25,7 @@ var (
 	equippedItemEndpoint = endpoint{feature: FeatureCharacters, path: "/api/character/equipment/item"}
 	daevanionEndpoint    = endpoint{feature: FeatureCharacters, path: "/api/character/daevanion/detail"}
 	rankingsEndpoint     = endpoint{feature: FeatureRankings, path: "/api/ranking/list"}
-	itemsEndpoint        = endpoint{feature: FeatureItems, path: "/dict/search/item", dict: true}
-	gradesEndpoint       = endpoint{feature: FeatureItems, path: "/game/item/grade", dict: true}
+	itemsEndpoint        = endpoint{feature: FeatureItems, path: "/dict/search/item", host: dictHost}
+	gradesEndpoint       = endpoint{feature: FeatureItems, path: "/game/item/grade", host: dictHost}
+	categoriesEndpoint   = endpoint{feature: FeatureItems, path: "/game/item/category", host: dictHost}
 )

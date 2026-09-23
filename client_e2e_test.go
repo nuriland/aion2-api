@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -93,6 +94,9 @@ func TestE2ESearchCharacters(t *testing.T) {
 			for _, hit := range res.Items {
 				if hit.Region != r.region || hit.Ref.CharacterID == "" || hit.ClassID == 0 {
 					t.Fatalf("row not resolved: %+v", hit)
+				}
+				if !strings.HasPrefix(hit.ImageURL, portraitOrigin+"/") {
+					t.Fatalf("got portrait %q, want one on %s", hit.ImageURL, portraitOrigin)
 				}
 			}
 		})
@@ -220,6 +224,200 @@ func TestE2EItemFilters(t *testing.T) {
 			}
 			if page.Page.Total == 0 || page.Page.Total >= all.Page.Total {
 				t.Fatalf("got %d of %d items, want fewer", page.Page.Total, all.Page.Total)
+			}
+		})
+	}
+}
+
+func TestE2EPosts(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+			if !c.Supports(FeatureNews) {
+				t.Fatal("Supports(FeatureNews) = false")
+			}
+
+			for _, board := range []Board{BoardDevNews, BoardUpdates, BoardNotices} {
+				posts, err := c.Posts(t.Context(), board)
+				if err != nil {
+					t.Fatal(board, err)
+				}
+				if len(posts) == 0 {
+					t.Fatalf("%s: no posts", board)
+				}
+				for _, p := range posts {
+					if p.ID == "" || p.Title == "" || p.PostedAt.IsZero() || p.Board != board || p.Region != r.region {
+						t.Fatalf("%s: post not resolved: %+v", board, p)
+					}
+					if !p.Official {
+						t.Fatalf("%s: post by a player on an official board: %q", board, p.Title)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestE2EPost(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			posts, err := c.Posts(t.Context(), BoardDevNews)
+			if err != nil {
+				t.Fatal(err)
+			}
+			post, err := c.Post(t.Context(), BoardDevNews, posts[0].ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if post.Title != posts[0].Title {
+				t.Fatalf("got title %q, want %q", post.Title, posts[0].Title)
+			}
+			if post.HTML == "" {
+				t.Fatal("post has no body")
+			}
+
+			_, err = c.Post(t.Context(), BoardDevNews, "000000000000000000000000")
+			if !errors.Is(err, ErrNotFound) {
+				t.Fatalf("got %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
+
+func TestE2ECommunityPosts(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			posts, err := c.Posts(t.Context(), BoardFree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(posts) == 0 {
+				t.Fatal("no posts")
+			}
+			var author *Author
+			for _, p := range posts {
+				if p.Official {
+					continue
+				}
+				if p.Author == nil || p.Author.Name == "" || p.Author.Ref.ServerID == 0 || p.Author.Ref.CharacterID == "" {
+					t.Fatalf("author not resolved: %+v", p)
+				}
+				author = p.Author
+			}
+			if author == nil {
+				t.Fatal("no player posts on the player forum")
+			}
+
+			ch, err := c.Character(t.Context(), author.Ref)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ch.Profile.Name != author.Name {
+				t.Fatalf("got character %q, want the author %q", ch.Profile.Name, author.Name)
+			}
+
+			_, err = c.Posts(t.Context(), Board("nope"))
+			if !errors.Is(err, ErrNotFound) {
+				t.Fatalf("got %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
+
+func TestE2EPinnedPosts(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			posts, err := c.PinnedPosts(t.Context(), BoardNotices)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(posts) == 0 {
+				t.Skip("nothing pinned right now")
+			}
+			for _, p := range posts {
+				if p.ID == "" || p.Title == "" || p.PostedAt.IsZero() || !p.Official {
+					t.Fatalf("pinned post not resolved: %+v", p)
+				}
+			}
+		})
+	}
+}
+
+func TestE2EComments(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			posts, err := c.Posts(t.Context(), BoardFree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			i := slices.IndexFunc(posts, func(p Post) bool { return p.Comments > 0 })
+			if i < 0 {
+				t.Skip("no commented post among the latest 10")
+			}
+
+			comments, err := c.Comments(t.Context(), BoardFree, posts[i].ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(comments) == 0 {
+				t.Fatalf("post says %d comments, got none", posts[i].Comments)
+			}
+			for _, cm := range comments {
+				if cm.ID == "" || cm.Text == "" || cm.PostID != posts[i].ID || cm.PostedAt.IsZero() {
+					t.Fatalf("comment not resolved: %+v", cm)
+				}
+				if cm.Author == nil && !cm.Official {
+					t.Fatalf("comment by nobody: %+v", cm)
+				}
+			}
+
+			none, err := c.Comments(t.Context(), BoardFree, "000000000000000000000000")
+			if err != nil || len(none) != 0 {
+				t.Fatalf("unknown post: got %d comments, %v", len(none), err)
+			}
+		})
+	}
+}
+
+func TestE2EItemTaxonomies(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			grades, err := c.ItemGrades(t.Context())
+			if !r.items {
+				if !errors.Is(err, ErrFeatureUnavailable) {
+					t.Fatalf("got %v, want ErrFeatureUnavailable", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(grades) != 5 {
+				t.Fatalf("got %d grades, want 5", len(grades))
+			}
+			if !slices.ContainsFunc(grades, func(g ItemGrade) bool { return g.ID == "Epic" && g.Name != "" }) {
+				t.Fatalf("no named Epic grade in %+v", grades)
+			}
+
+			categories, err := c.ItemCategories(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(categories) != 6 {
+				t.Fatalf("got %d categories, want 6", len(categories))
+			}
+			if categories[0].ID != "Equip_Weapon" || len(categories[0].Children) == 0 {
+				t.Fatalf("got first category %+v, want Equip_Weapon with children", categories[0])
 			}
 		})
 	}

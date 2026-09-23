@@ -4,12 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
-)
-
-const (
-	classTableCacheTTL = 24 * time.Hour // How stale the class table and the item index may get
-	itemIndexCacheTTL  = 24 * time.Hour // How stale the item index may get
 )
 
 // classTable joins the two ideas of a class. Class.ID (2 = Gladiator) is what callers hold.

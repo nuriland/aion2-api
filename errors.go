@@ -16,7 +16,6 @@ var (
 	ErrUpstream           = errors.New("aion2: upstream error")
 	ErrBadRequest         = errors.New("aion2: upstream rejected params")
 	ErrRateLimited        = errors.New("aion2: rate limited")
-	ErrEmptyRanking       = errors.New("aion2: ranking list empty")
 	ErrNotImplemented     = errors.New("aion2: not implemented")
 	ErrUnsupportedRegion  = errors.New("aion2: unsupported region")
 	ErrFeatureUnavailable = errors.New("aion2: feature unavailable on this region")
@@ -25,7 +24,7 @@ var (
 type APIError struct {
 	Region     Region
 	Feature    Feature
-	Path       string        // without the query, which carries character IDs
+	Path       string        // the URL without its query, which carries character IDs
 	Body       string        // upstream's bytes, truncated; never an SDK message
 	StatusCode int           // upstream's status, when the status is not success
 	RetryAfter time.Duration // upstream's Retry-After, if it sent one

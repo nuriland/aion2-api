@@ -3,6 +3,7 @@ package aion2
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // Locale changes labels, never the backend.
@@ -24,7 +25,7 @@ const (
 	RegionGlobal Region = "global" // reserved
 )
 
-// Server is one world NC serves, with a unique name and ID
+// Server is one world. IDs collide across regions
 type Server struct {
 	Region    Region `json:"region"`
 	ServerID  int    `json:"serverId"`
@@ -137,6 +138,7 @@ type CharacterSummary struct {
 	ClassName  string       `json:"className"` // localized; empty whenever ClassID is 0
 	RaceID     int          `json:"race"`
 	Level      int          `json:"level"`
+	ImageURL   string       `json:"imageUrl"` // the portrait; not every character has one
 }
 
 type Equipment struct {
@@ -306,6 +308,19 @@ type Item struct {
 	Raw json.RawMessage `json:"-"` // the upstream row, for fields the SDK does not map
 }
 
+// ItemGrade is a grade as the dictionary names it. ID is what ItemSearch.Grade takes.
+type ItemGrade struct {
+	ID   string `json:"id"`
+	Name string `json:"name"` // localized; en-US names sit one grade off the ids (Legend reads "Epic")
+}
+
+// ItemCategory is a category as the dictionary names it. ID feeds ItemSearch.Category, a child's ID SubCategory.
+type ItemCategory struct {
+	ID       string         `json:"id"`
+	Name     string         `json:"name"` // localized
+	Children []ItemCategory `json:"child"`
+}
+
 // The values are the official ranking page's own table, read from its bundle (built 2026-04-08)
 type RankingContents int
 
@@ -396,29 +411,50 @@ func (l *Lines) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// @TODO: move elsewhere
-type gameRegion struct {
-	region      Region
-	origin      string
-	apiPrefix   string
-	dictPrefix  string
-	defaultLang Locale
-	rankings    bool
+// Board is one of NC's community boards. The first three are NC's own, the rest are the players'
+type Board string
+
+const (
+	BoardNotices Board = "notice"   // announcements
+	BoardUpdates Board = "update"   // patch notes
+	BoardDevNews Board = "cm_story" // the CM team's weekly update news
+
+	BoardFree    Board = "free"           // general discussion
+	BoardRecruit Board = "member_recruit" // legion recruitment
+	BoardTips    Board = "tip"
+	BoardMedia   Board = "image" // screenshots and videos
+)
+
+// Post is one board post. HTML is set only by Post, not Posts.
+type Post struct {
+	ID           string  `json:"id"`
+	Board        Board   `json:"board"`
+	Region       Region  `json:"region"`
+	Title        string  `json:"title"`
+	Summary      string  `json:"summary"`
+	ThumbnailURL string  `json:"thumbnailUrl"`
+	Official     bool    `json:"official"`         // written by NC staff
+	Author       *Author `json:"author,omitempty"` // the player who wrote it, nil on staff posts
+	Views        int     `json:"views"`
+	Comments     int     `json:"comments"`
+	HTML         string  `json:"html,omitempty"`
+
+	PostedAt  time.Time `json:"postedAt"` // as NC reports it, it labels local wall-clock time as UTC
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-var regions = map[Region]gameRegion{
-	RegionKR: {
-		region:      RegionKR,
-		origin:      "https://aion2.plaync.com",
-		defaultLang: LocaleKO,
-		rankings:    false,
-	},
-	RegionTW: {
-		region:      RegionTW,
-		origin:      "https://tw.ncsoft.com",
-		apiPrefix:   "/aion2",
-		dictPrefix:  "/aion2_tw/v2.0",
-		defaultLang: LocaleZHTW,
-		rankings:    false,
-	},
+// Author is the character a player posted as. Ref opens Character, Equipment and the rest.
+type Author struct {
+	Name string       `json:"name"`
+	Ref  CharacterRef `json:"ref"`
+}
+
+// Comment is one reply under a post
+type Comment struct {
+	ID       string    `json:"id"`
+	PostID   string    `json:"postId"`
+	Text     string    `json:"text"`
+	PostedAt time.Time `json:"postedAt"`
+	Official bool      `json:"official"`         // written by NC staff
+	Author   *Author   `json:"author,omitempty"` // nil on staff comments
 }

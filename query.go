@@ -28,37 +28,28 @@ func (q CharacterSearch) query() url.Values {
 	return v
 }
 
+// query uses the dictionary's own param names. The obvious ones (query, grade, category) are accepted
+// and silently ignored, which returns the whole catalog and looks like success.
 func (q ItemSearch) query() url.Values {
-	// @TODO: find a better way to get all query params
+	size := q.Size
+	if size <= 0 {
+		size = 30
+	}
 	v := url.Values{
 		"page": {strconv.Itoa(max(q.Page, 1))},
-		"size": {strconv.Itoa(q.Size)},
+		"size": {strconv.Itoa(size)},
 	}
-	if q.Size <= 0 {
-		v.Set("size", "30")
+	if q.Query != "" {
+		v.Set("searchKeyword", q.Query)
 	}
-	for param, value := range map[string]string{
-		"searchKeyword": q.Query,
-		"grades":        q.Grade,
-		"category1":     q.Category,
-		"category2":     q.SubCategory,
-	} {
-		if value != "" {
-			v.Set(param, value)
-		}
+	if q.Grade != "" {
+		v.Set("grades", q.Grade)
 	}
-	return v
-}
-
-func (q RankingQuery) query(lang Locale) url.Values {
-	v := url.Values{
-		"lang":                {string(lang)},
-		"rankingContentsType": {strconv.Itoa(int(q.ContentsType))},
-		"rankingType":         {strconv.Itoa(q.ClassID)},
-		"serverId":            {strconv.Itoa(q.ServerID)},
+	if q.Category != "" {
+		v.Set("category1", q.Category)
 	}
-	if q.Name != "" {
-		v.Set("searchCharacterName", q.Name)
+	if q.SubCategory != "" {
+		v.Set("category2", q.SubCategory)
 	}
 	return v
 }

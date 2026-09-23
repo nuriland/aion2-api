@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	crawl := flag.Bool("crawl", false, "exercise Items.Get (crawls the whole TW catalog once, ~60 requests at 1 rps)")
+	crawl := flag.Bool("crawl", false, "exercise Item (crawls the whole TW catalog once, ~60 requests at 1 rps)")
 	verbose := flag.Bool("v", false, "log every request")
 	flag.Parse()
 
@@ -85,11 +85,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Items.Get: %d %s (%s) — crawl took %s\n", it.ID, it.Name, it.Grade, time.Since(start).Round(time.Second))
+		fmt.Printf("Item: %d %s (%s) — crawl took %s\n", it.ID, it.Name, it.Grade, time.Since(start).Round(time.Second))
 		start = time.Now()
 		if _, err := tw.Item(ctx, 110120002); err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("second Get: %s\n", time.Since(start))
+		fmt.Printf("second Item: %s\n", time.Since(start))
 	}
 }

@@ -23,7 +23,7 @@ cover: ## coverage summary, per function
 	@go tool cover -func=cover.out | tail -1
 	@echo "  open it: go tool cover -html=cover.out"
 
-e2e: ## ~15 real requests against NC, both regions
+e2e: ## ~45 real requests against NC, both regions
 	AION2_E2E=1 go test . -run E2E -count=1 -v -timeout 5m
 
 probe: ## run the example end to end

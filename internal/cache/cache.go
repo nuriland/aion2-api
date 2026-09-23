@@ -8,7 +8,6 @@ import (
 
 type Value[T any] struct {
 	TTL time.Duration
-	Now func() time.Time
 
 	mu    sync.Mutex
 	value T
@@ -43,12 +42,11 @@ func (v *Value[T]) Get(ctx context.Context, load func(context.Context) (T, error
 
 // The release is deferred so a panicking loader cannot strand the waiters.
 func (v *Value[T]) fill(ctx context.Context, load func(context.Context) (T, error)) (value T, err error) {
-	var loaded bool = false
-
+	var loaded = false
 	defer func() {
 		v.mu.Lock()
 		if loaded {
-			v.value, v.loadedAt = value, v.now()
+			v.value, v.loadedAt = value, time.Now()
 		}
 		close(v.loading)
 		v.loading = nil
@@ -73,11 +71,4 @@ func (v *Value[T]) Expire(minAge time.Duration) bool {
 	return true
 }
 
-func (v *Value[T]) age() time.Duration { return v.now().Sub(v.loadedAt) }
-
-func (v *Value[T]) now() time.Time {
-	if v.Now != nil {
-		return v.Now()
-	}
-	return time.Now()
-}
+func (v *Value[T]) age() time.Duration { return time.Since(v.loadedAt) }

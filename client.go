@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/url"
 	"slices"
 	"strconv"
@@ -32,8 +33,15 @@ type Aion2Client interface {
 
 	SearchItems(context.Context, ItemSearch) (*Paged[ItemSummary], error)
 	Item(context.Context, int) (*Item, error)
+	ItemGrades(context.Context) ([]ItemGrade, error)
+	ItemCategories(context.Context) ([]ItemCategory, error)
 
 	Rankings(context.Context, RankingQuery) (*RankingPage, error)
+
+	Posts(context.Context, Board) ([]Post, error)
+	PinnedPosts(context.Context, Board) ([]Post, error)
+	Post(context.Context, Board, string) (*Post, error)
+	Comments(context.Context, Board, string) ([]Comment, error)
 }
 
 type client struct {
@@ -52,8 +60,8 @@ func New(cfgOpts ConfigOpts) (*client, error) {
 	}
 	return &client{
 		config:    cfg,
-		classes:   cache.Value[*classTable]{TTL: classTableCacheTTL},
-		itemIndex: cache.Value[map[int]Item]{TTL: itemIndexCacheTTL},
+		classes:   cache.Value[*classTable]{TTL: cacheTTL},
+		itemIndex: cache.Value[map[int]Item]{TTL: cacheTTL},
 	}, nil
 }
 
@@ -74,6 +82,8 @@ func (c *client) Supports(f Feature) bool {
 		return c.config.dictPrefix != ""
 	case FeatureRankings:
 		return c.config.rankings
+	case FeatureNews:
+		return c.config.communityURL != ""
 	}
 	return false
 }
@@ -158,6 +168,9 @@ func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Pag
 		summary.Region = c.config.region
 		summary.Name = highlight.Replace(summary.Name)
 		summary.ClassID, summary.ClassName = class.ID, class.Text
+		if row.ProfileImageURL != "" {
+			summary.ImageURL = portraitOrigin + row.ProfileImageURL
+		}
 		found[i] = summary
 	}
 	return &Paged[CharacterSummary]{
@@ -169,43 +182,6 @@ func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Pag
 			LastPage: raw.Pagination.EndPage,
 		},
 	}, nil
-}
-
-// @TODO: move elsewhere
-func (c *client) classLabels(ctx context.Context, pcIDs ...int) *classTable {
-	table, err := c.classTable(ctx)
-	if err != nil {
-		return &classTable{}
-	}
-	if table.knows(pcIDs) || !c.classes.Expire(time.Minute) {
-		return table
-	}
-	if fresh, err := c.classTable(ctx); err == nil {
-		return fresh
-	}
-	return table
-}
-
-// @TODO: move elsewhere
-func (c *client) loadClassTable(ctx context.Context) (*classTable, error) {
-	classes, err := c.Classes(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var raw pcDataResponse
-	if err := c.get(ctx, pcDataEndpoint, c.langQuery(), &raw); err != nil {
-		return nil, err
-	}
-	if raw.PcDataList == nil {
-		return nil, c.drift(pcDataEndpoint, "pcDataList")
-	}
-	for _, pc := range raw.PcDataList {
-		if pc.ID == 0 || pc.ClassName == "" {
-			return nil, c.drift(pcDataEndpoint, "id or className must be non-zero")
-		}
-	}
-	return newClassTable(classes, raw.PcDataList), nil
 }
 
 // Character returns the profile of a character on a given server
@@ -363,8 +339,8 @@ func (c *client) Daevanion(ctx context.Context, ref CharacterRef, boardID int) (
 //
 // @TODO: refac
 func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSummary], error) {
-	if !c.Supports(FeatureItems) {
-		return nil, c.errorf(itemsEndpoint, ErrFeatureUnavailable, "%s has no item catalog", c.config.region)
+	if err := c.requires(FeatureItems); err != nil {
+		return nil, err
 	}
 	query := q.query()
 	if q.ClassID != 0 {
@@ -432,8 +408,8 @@ func (c *client) itemPage(ctx context.Context, query url.Values) ([]Item, itemPa
 
 // Item returns the item with the given ID
 func (c *client) Item(ctx context.Context, id int) (*Item, error) {
-	if !c.Supports(FeatureItems) {
-		return nil, c.errorf(itemsEndpoint, ErrFeatureUnavailable, "%s has no item catalog", c.config.region)
+	if err := c.requires(FeatureItems); err != nil {
+		return nil, err
 	}
 	index, err := c.itemIndex.Get(ctx, c.crawl)
 	if err != nil {
@@ -441,7 +417,7 @@ func (c *client) Item(ctx context.Context, id int) (*Item, error) {
 	}
 	item, ok := index[id]
 	if !ok {
-		return nil, c.errorf(endpoint{feature: FeatureItems}, ErrNotFound, "item %d", id)
+		return nil, c.errorf(itemsEndpoint, ErrNotFound, "item %d", id)
 	}
 	item.Options, item.Raw = slices.Clone(item.Options), slices.Clone(item.Raw)
 	return &item, nil
@@ -451,7 +427,7 @@ func (c *client) Item(ctx context.Context, id int) (*Item, error) {
 //
 // @TODO: refac
 func (c *client) crawl(ctx context.Context) (map[int]Item, error) {
-	grades, err := c.grades(ctx)
+	grades, err := c.ItemGrades(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +447,7 @@ func (c *client) crawl(ctx context.Context) (map[int]Item, error) {
 				return nil, err
 			}
 			items, paging, err := c.itemPage(ctx, url.Values{
-				"grades": {grade},
+				"grades": {grade.ID},
 				"page":   {strconv.Itoa(page)},
 				"size":   {strconv.Itoa(c.config.crawlPageSize)},
 			})
@@ -484,7 +460,7 @@ func (c *client) crawl(ctx context.Context) (map[int]Item, error) {
 			}
 			// Past the cap, rows are unreachable. A partial index is worse than none.
 			if paging.Limit > 0 && paging.Total > paging.Limit {
-				return nil, c.errorf(itemsEndpoint, ErrUpstream, "crawl stopped: grade %s has %d items, over the paging cap of %d", grade, paging.Total, paging.Limit)
+				return nil, c.errorf(itemsEndpoint, ErrUpstream, "crawl stopped: grade %s has %d items, over the paging cap of %d", grade.ID, paging.Total, paging.Limit)
 			}
 			for _, item := range items {
 				index[item.ID] = item
@@ -495,28 +471,275 @@ func (c *client) crawl(ctx context.Context) (map[int]Item, error) {
 	return index, nil
 }
 
-// @TODO: refac
-func (c *client) grades(ctx context.Context) ([]string, error) {
-	var rows []gradeRow
-	if err := c.get(ctx, gradesEndpoint, c.localeQuery(), &rows); err != nil {
+// ItemGrades returns the dictionary's grades with their localized names
+func (c *client) ItemGrades(ctx context.Context) ([]ItemGrade, error) {
+	if err := c.requires(FeatureItems); err != nil {
 		return nil, err
 	}
-	if len(rows) == 0 {
+	var grades []ItemGrade
+	if err := c.get(ctx, gradesEndpoint, c.localeQuery(), &grades); err != nil {
+		return nil, err
+	}
+	if len(grades) == 0 {
 		return nil, c.drift(gradesEndpoint, "grades")
 	}
-	ids := make([]string, len(rows))
-	for i, row := range rows {
-		ids[i] = row.ID
+	for _, grade := range grades {
+		if grade.ID == "" {
+			return nil, c.drift(gradesEndpoint, "id on a grade")
+		}
 	}
-	return ids, nil
+	return grades, nil
+}
+
+// ItemCategories returns the dictionary's category tree with localized names
+func (c *client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
+	if err := c.requires(FeatureItems); err != nil {
+		return nil, err
+	}
+	var categories []ItemCategory
+	if err := c.get(ctx, categoriesEndpoint, c.localeQuery(), &categories); err != nil {
+		return nil, err
+	}
+	if len(categories) == 0 {
+		return nil, c.drift(categoriesEndpoint, "categories")
+	}
+	for _, category := range categories {
+		if category.ID == "" {
+			return nil, c.drift(categoriesEndpoint, "id on a category")
+		}
+	}
+	return categories, nil
 }
 
 func (c *client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, error) {
 	return nil, c.apiError(rankingsEndpoint, ErrNotImplemented)
 }
 
+// Posts returns a board's latest posts, newest first. Upstream serves ten and does not page.
+func (c *client) Posts(ctx context.Context, board Board) ([]Post, error) {
+	if err := c.requires(FeatureNews); err != nil {
+		return nil, err
+	}
+	ep := c.boardEndpoint(board, "/article")
+
+	var raw postsResponse
+	if err := c.get(ctx, ep, nil, &raw); err != nil {
+		return nil, err
+	}
+	if raw.ContentList == nil {
+		return nil, c.drift(ep, "contentList")
+	}
+
+	if len(raw.ContentList) == 0 {
+		// An unknown alias gets the same empty 200 as a quiet board
+		if err := c.boardExists(ctx, board); err != nil {
+			return nil, err
+		}
+	}
+
+	posts := make([]Post, len(raw.ContentList))
+	for i, row := range raw.ContentList {
+		post, err := c.post(ep, board, row)
+		if err != nil {
+			return nil, err
+		}
+		posts[i] = post
+	}
+	return posts, nil
+}
+
+// Post returns one post with its body as HTML
+func (c *client) Post(ctx context.Context, board Board, id string) (*Post, error) {
+	if err := c.requires(FeatureNews); err != nil {
+		return nil, err
+	}
+	if id == "" {
+		return nil, c.errorf(endpoint{feature: FeatureNews}, ErrBadRequest, "Post needs an id; take it from Posts")
+	}
+	ep := c.boardEndpoint(board, "/article/"+url.PathEscape(id))
+
+	var raw postResponse
+	if err := c.get(ctx, ep, nil, &raw); err != nil {
+		return nil, err
+	}
+	if raw.Article == nil {
+		return nil, c.errorf(ep, ErrNotFound, "no post %s on %s", id, board)
+	}
+
+	post, err := c.post(ep, board, raw.Article.ContentMeta)
+	if err != nil {
+		return nil, err
+	}
+	post.HTML = raw.Article.Content.Body
+	return &post, nil
+}
+
+// PinnedPosts returns the posts NC pinned above a board. An unknown board reads as nothing pinned.
+func (c *client) PinnedPosts(ctx context.Context, board Board) ([]Post, error) {
+	if err := c.requires(FeatureNews); err != nil {
+		return nil, err
+	}
+	ep := c.boardEndpoint(board, "/noticeArticle")
+
+	var raw pinnedResponse
+	if err := c.get(ctx, ep, nil, &raw); err != nil {
+		return nil, err
+	}
+	if raw.NoticesList == nil {
+		return nil, c.drift(ep, "noticesList")
+	}
+
+	posts := make([]Post, len(raw.NoticesList))
+	for i, row := range raw.NoticesList {
+		post, err := c.post(ep, board, row.ArticleMeta)
+		if err != nil {
+			return nil, err
+		}
+		posts[i] = post
+	}
+	return posts, nil
+}
+
+// Comments returns the replies under a post, as NC lists them. Upstream does not page, and an
+// unknown post reads as no comments.
+func (c *client) Comments(ctx context.Context, board Board, postID string) ([]Comment, error) {
+	if err := c.requires(FeatureNews); err != nil {
+		return nil, err
+	}
+	if postID == "" {
+		return nil, c.errorf(endpoint{feature: FeatureNews}, ErrBadRequest, "Comments needs a post id; take it from Posts")
+	}
+	ep := c.boardEndpoint(board, "/article/"+url.PathEscape(postID)+"/comment/search/moreComment")
+
+	var raw commentsResponse
+	if err := c.get(ctx, ep, nil, &raw); err != nil {
+		return nil, err
+	}
+	if raw.ContentList == nil {
+		return nil, c.drift(ep, "contentList")
+	}
+
+	comments := make([]Comment, len(raw.ContentList))
+	for i, row := range raw.ContentList {
+		meta := row.ContentMeta
+		if meta.ID == "" {
+			return nil, c.drift(ep, "id on a comment")
+		}
+		author, err := c.author(ep, meta)
+		if err != nil {
+			return nil, err
+		}
+		comments[i] = Comment{
+			ID:       meta.ID,
+			PostID:   postID,
+			Text:     html.UnescapeString(row.Content.Body),
+			PostedAt: time.Unix(meta.Timestamps.PostedEpoch, 0).UTC(),
+			Official: meta.Writer.LoginUser.Admin,
+			Author:   author,
+		}
+	}
+	return comments, nil
+}
+
+func (c *client) boardExists(ctx context.Context, board Board) error {
+	ep := c.boardEndpoint(board, "")
+	var raw boardResponse
+	if err := c.get(ctx, ep, nil, &raw); err != nil {
+		return err
+	}
+	if raw.Board == nil {
+		return c.errorf(ep, ErrNotFound, "no board %q in %s", board, c.config.region)
+	}
+	return nil
+}
+
+// boardEndpoint is a path under a board. NC suffixes the alias with the region's language: notice -> notice_ko
+func (c *client) boardEndpoint(board Board, path string) endpoint {
+	return endpoint{feature: FeatureNews, path: "/board/" + string(board) + c.config.boardSuffix + path, host: communityHost}
+}
+
+// post checks a row and flattens it. Title and summary arrive with HTML entities in them.
+func (c *client) post(ep endpoint, board Board, row postRow) (Post, error) {
+	if row.ID == "" || row.Title == "" {
+		return Post{}, c.drift(ep, "id or title on a row")
+	}
+	author, err := c.author(ep, row)
+	if err != nil {
+		return Post{}, err
+	}
+	return Post{
+		ID:           row.ID,
+		Board:        board,
+		Region:       c.config.region,
+		Title:        html.UnescapeString(row.Title),
+		Summary:      html.UnescapeString(row.Summary),
+		ThumbnailURL: row.ThumbnailURL,
+		PostedAt:     time.Unix(row.Timestamps.PostedEpoch, 0).UTC(),
+		UpdatedAt:    time.Unix(row.Timestamps.UpdatedEpoch, 0).UTC(),
+		Official:     row.Writer.LoginUser.Admin,
+		Author:       author,
+		Views:        row.Reactions.ViewCount,
+		Comments:     row.Reactions.CommentCount,
+	}, nil
+}
+
+// author is the character a row was posted as; nil when NC staff wrote it
+func (c *client) author(ep endpoint, row postRow) (*Author, error) {
+	g := row.Writer.GameUser
+	if g.CharacterID == "" {
+		return nil, nil
+	}
+	serverID, err := strconv.Atoi(g.ServerID)
+	if err != nil {
+		return nil, c.drift(ep, "numeric gameServerId on a row")
+	}
+	return &Author{
+		Name: g.CharacterName,
+		Ref:  CharacterRef{ServerID: serverID, CharacterID: decodeCharacterID(g.CharacterID)},
+	}, nil
+}
+
 func (c *client) classTable(ctx context.Context) (*classTable, error) {
 	return c.classes.Get(ctx, c.loadClassTable)
+}
+
+// classLabels is the table for naming results, and never fails: a result already in hand is not
+// thrown away because the table could not be fetched, its rows just carry ClassID 0.
+//
+// A pcId the table has not heard of may predate a game patch, so it is reloaded, at most once a minute.
+func (c *client) classLabels(ctx context.Context, pcIDs ...int) *classTable {
+	table, err := c.classTable(ctx)
+	if err != nil {
+		return &classTable{}
+	}
+	if table.knows(pcIDs) || !c.classes.Expire(time.Minute) {
+		return table
+	}
+	if fresh, err := c.classTable(ctx); err == nil {
+		return fresh
+	}
+	return table
+}
+
+func (c *client) loadClassTable(ctx context.Context) (*classTable, error) {
+	classes, err := c.Classes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var raw pcDataResponse
+	if err := c.get(ctx, pcDataEndpoint, c.langQuery(), &raw); err != nil {
+		return nil, err
+	}
+	if raw.PcDataList == nil {
+		return nil, c.drift(pcDataEndpoint, "pcDataList")
+	}
+	for _, pc := range raw.PcDataList {
+		if pc.ID == 0 || pc.ClassName == "" {
+			return nil, c.drift(pcDataEndpoint, "id or className must be non-zero")
+		}
+	}
+	return newClassTable(classes, raw.PcDataList), nil
 }
 
 // drift handles a 200 response missing a field we rely on.
@@ -535,16 +758,19 @@ func (c *client) localeQuery() url.Values {
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
-func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any) error {
-	fullPath := ""
-	if ep.dict {
-		fullPath = c.config.dictPrefix + ep.path
-	} else {
-		fullPath = c.config.apiPrefix + ep.path
+func (c *client) requires(f Feature) error {
+	if c.Supports(f) {
+		return nil
 	}
+	return c.errorf(endpoint{feature: f}, ErrFeatureUnavailable, "%s does not have %s", c.config.region, f)
+}
 
-	urlFor := c.config.baseURL + fullPath + "?" + query.Encode()
-	resp, err := c.config.httpClient.Get(ctx, urlFor)
+func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any) error {
+	u := c.url(ep)
+	if len(query) > 0 {
+		u += "?" + query.Encode()
+	}
+	resp, err := c.config.httpClient.Get(ctx, u)
 	if err != nil {
 		if ctx.Err() != nil {
 			return err
@@ -563,15 +789,20 @@ func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any
 func (c *client) apiError(ep endpoint, err error) *APIError {
 	e := &APIError{Region: c.config.region, Feature: ep.feature, Err: err}
 	if ep.path != "" {
-		fullPath := ""
-		if ep.dict {
-			fullPath = c.config.dictPrefix + ep.path
-		} else {
-			fullPath = c.config.apiPrefix + ep.path
-		}
-		e.Path = c.config.baseURL + fullPath
+		e.Path = c.url(ep)
 	}
 	return e
+}
+
+// url is the endpoint on this region's deployment of its backend
+func (c *client) url(ep endpoint) string {
+	switch ep.host {
+	case dictHost:
+		return c.config.origin + c.config.dictPrefix + ep.path
+	case communityHost:
+		return c.config.communityURL + ep.path
+	}
+	return c.config.origin + c.config.apiPrefix + ep.path
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method

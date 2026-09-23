@@ -10,4 +10,5 @@ const (
 	FeatureSearch     Feature = "search"
 	FeatureItems      Feature = "items"
 	FeatureRankings   Feature = "rankings"
+	FeatureNews       Feature = "news"
 )
