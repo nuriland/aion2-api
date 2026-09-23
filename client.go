@@ -35,6 +35,7 @@ type Aion2Client interface {
 
 	SearchItems(context.Context, ItemSearch) (*Paged[ItemSummary], error)
 	Items(context.Context, ItemSearch) iter.Seq2[ItemSummary, error]
+	SuggestItems(context.Context, string) ([]string, error)
 	Item(context.Context, int) (*Item, error)
 	ItemGrades(context.Context) ([]ItemGrade, error)
 	ItemCategories(context.Context) ([]ItemCategory, error)
@@ -531,6 +532,27 @@ func (c *client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
 		}
 	}
 	return categories, nil
+}
+
+// SuggestItems is the item page's autocomplete: up to 10 names in the client's locale that contain the keyword, no ids
+func (c *client) SuggestItems(ctx context.Context, keyword string) ([]string, error) {
+	if err := c.requires(FeatureItems); err != nil {
+		return nil, err
+	}
+	if keyword == "" {
+		return nil, c.errorf(suggestEndpoint, ErrBadRequest, "SuggestItems needs a keyword")
+	}
+	query := c.localeQuery()
+	query.Set("searchKeyword", keyword)
+	query.Set("size", "10") // NC serves 5 without it and 500 on 0
+	var names []string
+	if err := c.get(ctx, suggestEndpoint, query, &names); err != nil {
+		return nil, err
+	}
+	if names == nil {
+		return nil, c.drift(suggestEndpoint, "names")
+	}
+	return names, nil
 }
 
 // Rankings returns one board of the official ranking page, per server. NC has kept the public boards off

@@ -238,6 +238,19 @@ func TestE2EItems(t *testing.T) {
 	if walked != first.Page.Total {
 		t.Fatalf("walked %d items, want %d", walked, first.Page.Total)
 	}
+
+	names, err := c.SuggestItems(t.Context(), "Greatsword") // the client's locale, en-US here
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 10 {
+		t.Fatalf("suggested %d names, want 10", len(names))
+	}
+	for _, name := range names {
+		if !strings.Contains(name, "Greatsword") {
+			t.Fatalf("suggested %q for Greatsword", name)
+		}
+	}
 }
 
 func TestE2ERankings(t *testing.T) {

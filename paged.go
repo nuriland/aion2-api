@@ -20,9 +20,8 @@ type PageInfo struct {
 	LastPage int
 }
 
-// pages walks a listing from page 1 to upstream's LastPage, one request a page, and stops at the first error.
-//
-// LastPage is re-read from every page, so a cap NC moves is followed. An empty page ends the walk too.
+// pages walks page 1 to LastPage one request at a time, re-reading LastPage from every page so a cap NC moves is followed.
+// An empty page or the first error ends the walk
 func pages[T any](fetch func(page int) (*Paged[T], error)) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		for page, last := 1, 1; page <= last; page++ {

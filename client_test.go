@@ -20,12 +20,13 @@ func newTestClient(t *testing.T, region Region, h http.Handler) (*client, *recor
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	cfg, err := NewConfig(ConfigOpts{Region: region, RateLimit: 1000, CrawlPageSize: 2, CrawlPause: time.Nanosecond})
+	cfg, err := NewConfig(ConfigOpts{Region: region, RateLimit: 1000, CrawlPageSize: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.origin = srv.URL
 	cfg.communityURL = srv.URL + "/community"
+	cfg.crawlPause = 0
 	cfg.httpClient.RetryPause = func() time.Duration { return 0 }
 	return newClient(cfg), rec
 }
@@ -90,6 +91,8 @@ func fixtureFor(p string, q url.Values) string {
 		return "ranking_empty.json"
 	case strings.HasSuffix(p, "/ranking/list"):
 		return "ranking.json"
+	case strings.HasSuffix(p, "/dict/search/item/suggest"):
+		return "suggest.json"
 	case strings.HasSuffix(p, "/dict/search/item") && q.Get("page") == "2":
 		return "items_page2.json"
 	case strings.HasSuffix(p, "/dict/search/item"):
@@ -186,6 +189,12 @@ func TestDecode(t *testing.T) {
 	ok(err)
 	if it := page.Items[0]; it.ID != 110120001 || it.Name != "應龍王巨劍" || it.Region != RegionTW || page.Page.LastPage != 2 {
 		t.Fatalf("items %+v %+v", it, page.Page)
+	}
+
+	names, err := tw.SuggestItems(ctx, "巨劍")
+	ok(err)
+	if len(names) != 3 || names[0] != "魂魄巨劍" {
+		t.Fatalf("suggest %+v", names)
 	}
 
 	grades, err := tw.ItemGrades(ctx)
@@ -373,26 +382,29 @@ func TestStatus(t *testing.T) {
 
 func TestPreflight(t *testing.T) {
 	kr, rec := newTestClient(t, RegionKR, http.HandlerFunc(serveFixtures))
+	tw, twRec := newTestClient(t, RegionTW, http.HandlerFunc(serveFixtures))
 	ctx := t.Context()
 
 	for name, tc := range map[string]struct {
 		call func() error
 		want error
 	}{
-		"search":   {func() error { _, err := kr.SearchCharacters(ctx, CharacterSearch{}); return err }, ErrBadRequest},
-		"ref":      {func() error { _, err := kr.Character(ctx, CharacterRef{}); return err }, ErrBadRequest},
-		"slot":     {func() error { _, err := kr.EquippedItem(ctx, alpha, EquipSlot{}); return err }, ErrBadRequest},
-		"rankings": {func() error { _, err := kr.Rankings(ctx, RankingQuery{}); return err }, ErrBadRequest},
-		"post id":  {func() error { _, err := kr.Post(ctx, BoardNotices, ""); return err }, ErrBadRequest},
-		"kr items": {func() error { _, err := kr.SearchItems(ctx, ItemSearch{}); return err }, ErrFeatureUnavailable},
-		"kr item":  {func() error { _, err := kr.Item(ctx, 1); return err }, ErrFeatureUnavailable},
+		"search":     {func() error { _, err := kr.SearchCharacters(ctx, CharacterSearch{}); return err }, ErrBadRequest},
+		"ref":        {func() error { _, err := kr.Character(ctx, CharacterRef{}); return err }, ErrBadRequest},
+		"slot":       {func() error { _, err := kr.EquippedItem(ctx, alpha, EquipSlot{}); return err }, ErrBadRequest},
+		"rankings":   {func() error { _, err := kr.Rankings(ctx, RankingQuery{}); return err }, ErrBadRequest},
+		"post id":    {func() error { _, err := kr.Post(ctx, BoardNotices, ""); return err }, ErrBadRequest},
+		"keyword":    {func() error { _, err := tw.SuggestItems(ctx, ""); return err }, ErrBadRequest},
+		"kr items":   {func() error { _, err := kr.SearchItems(ctx, ItemSearch{}); return err }, ErrFeatureUnavailable},
+		"kr item":    {func() error { _, err := kr.Item(ctx, 1); return err }, ErrFeatureUnavailable},
+		"kr suggest": {func() error { _, err := kr.SuggestItems(ctx, "a"); return err }, ErrFeatureUnavailable},
 	} {
 		if err := tc.call(); !errors.Is(err, tc.want) {
 			t.Errorf("%s: got %v, want %v", name, err, tc.want)
 		}
 	}
-	if rec.hits.Load() != 0 {
-		t.Fatalf("refusals made %d requests, want 0", rec.hits.Load())
+	if hits := rec.hits.Load() + twRec.hits.Load(); hits != 0 {
+		t.Fatalf("refusals made %d requests, want 0", hits)
 	}
 }
 

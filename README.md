@@ -75,6 +75,8 @@ for it, err := range tw.Items(ctx, aion2.ItemSearch{Grade: "Epic", Category: "Eq
 
 item, _ := tw.Item(ctx, 110120001) // first call crawls the catalog once
 
+names, _ := tw.SuggestItems(ctx, "巨劍") // the item page's autocomplete, up to 10 names, no ids
+
 grades, _ := tw.ItemGrades(ctx)         // the ids ItemSearch.Grade takes, with localized names
 categories, _ := tw.ItemCategories(ctx) // same for Category / SubCategory
 ```
