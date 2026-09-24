@@ -14,7 +14,9 @@ const (
 	defaultTimeout   = 15 * time.Second // Default timeout for HTTP requests
 	cacheTTL         = 24 * time.Hour   // How stale the class table may get
 
-	portraitOrigin   = "https://profileimg.plaync.com" // character portraits, every region
+	portraitOrigin   = "https://profileimg.plaync.com"                                 // character portraits, every region
+	styleshopAPI     = "https://aion2-shop.plaync.com/styleshop"                       // the styleshop, every region
+	iconOrigin       = "https://assets.playnccdn.com/static-aion2-gamedata/resources/" // item icons, every region
 	defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
 )
 
@@ -41,28 +43,34 @@ type Config struct {
 
 // gameRegion is one region's deployment of the AION 2 website: where its backends live and what it has
 type gameRegion struct {
-	origin       string // the site; the API lives under apiPrefix
-	apiPrefix    string
-	dictPrefix   string // the item dictionary; empty means no catalog
-	communityURL string // the boards, on their own domain
-	boardSuffix  string // NC suffixes every board alias with the region's language
-	defaultLang  Locale
+	origin        string // the site; the API lives under apiPrefix
+	apiPrefix     string
+	dictPrefix    string // the item dictionary; empty means no catalog
+	communityURL  string // the boards, on their own domain
+	boardSuffix   string // NC suffixes every board alias with the region's language
+	styleshopURL  string // the styleshop, empty means none
+	styleshopSite string // the region's id in the styleshop's paths
+	defaultLang   Locale
 }
 
 var regions = map[Region]gameRegion{
 	RegionKR: {
-		origin:       "https://aion2.plaync.com",
-		communityURL: "https://api-community.plaync.com/aion2",
-		boardSuffix:  "_ko",
-		defaultLang:  LocaleKO,
+		origin:        "https://aion2.plaync.com",
+		communityURL:  "https://api-community.plaync.com/aion2",
+		boardSuffix:   "_ko",
+		styleshopURL:  styleshopAPI,
+		styleshopSite: "aion2",
+		defaultLang:   LocaleKO,
 	},
 	RegionTW: {
-		origin:       "https://tw.ncsoft.com",
-		apiPrefix:    "/aion2",
-		dictPrefix:   "/aion2_tw/v2.0",
-		communityURL: "https://api-tw-community.ncsoft.com/aion2_tw",
-		boardSuffix:  "_zh",
-		defaultLang:  LocaleZHTW,
+		origin:        "https://tw.ncsoft.com",
+		apiPrefix:     "/aion2",
+		dictPrefix:    "/aion2_tw/v2.0",
+		communityURL:  "https://api-tw-community.ncsoft.com/aion2_tw",
+		boardSuffix:   "_zh",
+		styleshopURL:  styleshopAPI,
+		styleshopSite: "aion2_tw",
+		defaultLang:   LocaleZHTW,
 	},
 }
 

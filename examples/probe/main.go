@@ -55,7 +55,7 @@ func main() {
 	if _, err := kr.SearchItems(ctx, aion2.ItemSearch{Size: 3}); !errors.Is(err, aion2.ErrFeatureUnavailable) {
 		log.Fatalf("expected unavailable, got %v", err)
 	}
-	fmt.Println("KR items: unavailable, as expected")
+	fmt.Println("KR item search: unavailable, as expected; KR has no dictionary, only Item by id")
 
 	for _, c := range []aion2.Aion2Client{kr, tw} {
 		res, err := c.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a", ServerID: 1001, RaceID: 1, Page: 1, Size: 20})
@@ -90,5 +90,11 @@ func main() {
 			log.Fatal(err)
 		}
 		fmt.Printf("%s item %d: %s (%s), %s %s\n", c.Region(), it.ID, it.Name, it.GradeName, it.MainStats[0].Name, it.MainStats[0].Value)
+
+		top, err := c.TopStyles(ctx, aion2.StyleTop{Period: "DAY_7"})
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("%s styles: %d this week, top %q by %s, %d downloads\n", c.Region(), len(top), top[0].Title, top[0].Author.Name, top[0].Downloads)
 	}
 }

@@ -169,6 +169,59 @@ type postRow struct {
 	} `json:"reactions"`
 }
 
+// GET {styleshopURL}/top100/{site}/ and /search/{site}/
+type stylesResponse struct {
+	ContentList []styleRow `json:"contentList"`
+	HasMore     bool       `json:"hasMore"`
+	SearchCount int        `json:"searchCount"` // every match on a search; on the top list, the rows served
+}
+
+// GET {styleshopURL}/board/{site}/article/{id}
+type styleResponse struct {
+	Article *struct {
+		ContentMeta postRow `json:"contentMeta"`
+		Content     struct {
+			Body            string    `json:"content"`
+			Tags            []string  `json:"tags"`
+			ServiceReserved imageList `json:"serviceReserved"`
+		} `json:"content"`
+		EquippedItems []StyleSlot `json:"equippedItems"`
+		Pet           *StyleItem  `json:"petInfo"`
+		Wing          *StyleItem  `json:"wingInfo"`
+		Styleshop     styleCounts `json:"styleshop"`
+	} `json:"article"` // missing: no such post
+}
+
+// styleRow is a post row with the styleshop's counts and screenshots beside it
+type styleRow struct {
+	postRow
+	Styleshop      styleCounts `json:"styleshop"`
+	ReservedFields imageList   `json:"reservedFields"`
+}
+
+type styleCounts struct {
+	LikeCount     int `json:"likeCount"`
+	DownloadCount int `json:"downloadCount"`
+}
+
+// imageList is where the styleshop keeps a post's screenshots: a JSON array inside a JSON string
+type imageList struct {
+	Reserved3 struct {
+		Contents struct {
+			JSON string `json:"json"`
+		} `json:"contents"`
+	} `json:"reserved3"`
+}
+
+func (l imageList) urls() ([]string, error) {
+	if l.Reserved3.Contents.JSON == "" {
+		return nil, nil
+	}
+	var urls []string
+	err := json.Unmarshal([]byte(l.Reserved3.Contents.JSON), &urls)
+	return urls, err
+}
+
 // descRow is one entry of a Lines list as NC sends it.
 type descRow struct {
 	Desc string `json:"desc"`

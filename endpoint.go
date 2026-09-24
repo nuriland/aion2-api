@@ -13,6 +13,7 @@ const (
 	siteHost      host = iota // the game site -- characters, servers, and classes
 	dictHost                  // the item dictionary
 	communityHost             // the community boards
+	styleshopHost             // the styleshop
 )
 
 var (

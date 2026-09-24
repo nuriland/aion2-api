@@ -45,6 +45,12 @@ type Aion2Client interface {
 	PinnedPosts(context.Context, Board) ([]Post, error)
 	Post(context.Context, Board, string) (*Post, error)
 	Comments(context.Context, Board, string) ([]Comment, error)
+
+	TopStyles(context.Context, StyleTop) ([]StyleSummary, error)
+	SearchStyles(context.Context, StyleSearch) (*Paged[StyleSummary], error)
+	Styles(context.Context, StyleSearch) iter.Seq2[StyleSummary, error]
+	Style(context.Context, string) (*Style, error)
+	StyleComments(context.Context, string) ([]Comment, error)
 }
 
 type client struct {
@@ -86,6 +92,8 @@ func (c *client) Supports(f Feature) bool {
 		return c.config.dictPrefix != ""
 	case FeatureNews:
 		return c.config.communityURL != ""
+	case FeatureStyles:
+		return c.config.styleshopURL != ""
 	}
 	return false
 }
@@ -630,8 +638,126 @@ func (c *client) Comments(ctx context.Context, board Board, postID string) ([]Co
 	if postID == "" {
 		return nil, c.errorf(endpoint{feature: FeatureNews}, ErrBadRequest, "Comments needs a post id; take it from Posts")
 	}
-	ep := c.boardEndpoint(board, "/article/"+url.PathEscape(postID)+"/comment/search/moreComment")
+	return c.comments(ctx, c.boardEndpoint(board, "/article/"+url.PathEscape(postID)+"/comment/search/moreComment"), postID)
+}
 
+// TopStyles is the styleshop's top list: the 50 most downloaded looks of the week, unless StyleTop says otherwise
+func (c *client) TopStyles(ctx context.Context, q StyleTop) ([]StyleSummary, error) {
+	if err := c.requires(FeatureStyles); err != nil {
+		return nil, err
+	}
+	ep := c.styleEndpoint("/top100/" + c.config.styleshopSite + "/")
+	query := q.query()
+
+	var styles []StyleSummary
+	for page := 0; ; page++ { // one page holds the list twice over; the loop is for the day NC outgrows it
+		query.Set("page", strconv.Itoa(page))
+		raw, rows, err := c.stylePage(ctx, ep, query)
+		if err != nil {
+			return nil, err
+		}
+		styles = append(styles, rows...)
+		if !raw.HasMore || len(rows) == 0 {
+			return styles, nil
+		}
+	}
+}
+
+// SearchStyles matches looks by a word; Field narrows it to the character's name, a worn item or a tag
+func (c *client) SearchStyles(ctx context.Context, q StyleSearch) (*Paged[StyleSummary], error) {
+	if err := c.requires(FeatureStyles); err != nil {
+		return nil, err
+	}
+	q.Page = max(q.Page, 1)
+	if q.Size <= 0 {
+		q.Size = 20
+	}
+	raw, rows, err := c.stylePage(ctx, c.styleEndpoint("/search/"+c.config.styleshopSite+"/"), q.query())
+	if err != nil {
+		return nil, err
+	}
+	return &Paged[StyleSummary]{
+		Items: rows,
+		Page: PageInfo{
+			Page:     q.Page,
+			Size:     q.Size,
+			Total:    raw.SearchCount,
+			LastPage: max(1, (raw.SearchCount+q.Size-1)/q.Size), // upstream counts matches, not pages
+		},
+	}, nil
+}
+
+// Styles walks every match, page after page. Size is the rows a page asks for, 100 unless set
+func (c *client) Styles(ctx context.Context, q StyleSearch) iter.Seq2[StyleSummary, error] {
+	if q.Size <= 0 {
+		q.Size = 100
+	}
+	return pages(func(page int) (*Paged[StyleSummary], error) {
+		q.Page = page
+		return c.SearchStyles(ctx, q)
+	})
+}
+
+// Style is one look in full: the text, the tags, and the gear slot by slot
+func (c *client) Style(ctx context.Context, id string) (*Style, error) {
+	if err := c.requires(FeatureStyles); err != nil {
+		return nil, err
+	}
+	if id == "" {
+		return nil, c.errorf(endpoint{feature: FeatureStyles}, ErrBadRequest, "Style needs an id; take it from TopStyles or SearchStyles")
+	}
+	ep := c.styleEndpoint("/board/" + c.config.styleshopSite + "/article/" + url.PathEscape(id))
+
+	var body json.RawMessage
+	if err := c.get(ctx, ep, nil, &body); err != nil {
+		return nil, err
+	}
+	var raw styleResponse
+	if err := c.decode(ep, body, &raw); err != nil {
+		return nil, err
+	}
+	if raw.Article == nil {
+		return nil, c.errorf(ep, ErrNotFound, "no style %s", id)
+	}
+
+	a := raw.Article
+	summary, err := c.style(ep, a.ContentMeta, a.Styleshop, a.Content.ServiceReserved)
+	if err != nil {
+		return nil, err
+	}
+	for i := range a.EquippedItems {
+		slot := &a.EquippedItems[i]
+		slot.ItemIconURL, slot.SkinIconURL = iconURL(slot.ItemIconURL), iconURL(slot.SkinIconURL)
+	}
+	for _, item := range []*StyleItem{a.Pet, a.Wing} {
+		if item != nil {
+			item.IconURL = iconURL(item.IconURL)
+		}
+	}
+	return &Style{
+		StyleSummary: summary,
+		Text:         html.UnescapeString(a.Content.Body),
+		Tags:         a.Content.Tags,
+		Outfit:       a.EquippedItems,
+		Pet:          a.Pet,
+		Wing:         a.Wing,
+		Raw:          body,
+	}, nil
+}
+
+// StyleComments returns the replies under a look
+func (c *client) StyleComments(ctx context.Context, id string) ([]Comment, error) {
+	if err := c.requires(FeatureStyles); err != nil {
+		return nil, err
+	}
+	if id == "" {
+		return nil, c.errorf(endpoint{feature: FeatureStyles}, ErrBadRequest, "StyleComments needs an id; take it from TopStyles or SearchStyles")
+	}
+	return c.comments(ctx, c.styleEndpoint("/board/"+c.config.styleshopSite+"/article/"+url.PathEscape(id)+"/comment/search/moreComment"), id)
+}
+
+// comments reads the replies under a post, on the boards or the styleshop
+func (c *client) comments(ctx context.Context, ep endpoint, postID string) ([]Comment, error) {
 	var raw commentsResponse
 	if err := c.get(ctx, ep, nil, &raw); err != nil {
 		return nil, err
@@ -718,6 +844,71 @@ func (c *client) author(ep endpoint, row postRow) (*Author, error) {
 		Name: g.CharacterName,
 		Ref:  CharacterRef{ServerID: serverID, CharacterID: decodeCharacterID(g.CharacterID)},
 	}, nil
+}
+
+// styleEndpoint is a path on the styleshop
+func (c *client) styleEndpoint(path string) endpoint {
+	return endpoint{feature: FeatureStyles, path: path, host: styleshopHost}
+}
+
+// stylePage reads one page of a styleshop list
+func (c *client) stylePage(ctx context.Context, ep endpoint, query url.Values) (stylesResponse, []StyleSummary, error) {
+	var raw stylesResponse
+	if err := c.get(ctx, ep, query, &raw); err != nil {
+		return raw, nil, err
+	}
+	if raw.ContentList == nil {
+		return raw, nil, c.drift(ep, "contentList")
+	}
+	styles := make([]StyleSummary, len(raw.ContentList))
+	for i, row := range raw.ContentList {
+		style, err := c.style(ep, row.postRow, row.Styleshop, row.ReservedFields)
+		if err != nil {
+			return raw, nil, err
+		}
+		styles[i] = style
+	}
+	return raw, styles, nil
+}
+
+// style checks a row and flattens it. The counts and screenshots sit beside the row on a list and beside the body on a post
+func (c *client) style(ep endpoint, row postRow, counts styleCounts, images imageList) (StyleSummary, error) {
+	if row.ID == "" || row.Title == "" {
+		return StyleSummary{}, c.drift(ep, "id or title on a row")
+	}
+	author, err := c.author(ep, row)
+	if err != nil {
+		return StyleSummary{}, err
+	}
+	if author == nil {
+		return StyleSummary{}, c.drift(ep, "character on a row")
+	}
+	urls, err := images.urls()
+	if err != nil {
+		return StyleSummary{}, c.errorf(ep, ErrUpstream, "screenshots: %w", err)
+	}
+	return StyleSummary{
+		ID:        row.ID,
+		Region:    c.config.region,
+		Title:     html.UnescapeString(row.Title),
+		Summary:   html.UnescapeString(row.Summary),
+		Author:    *author,
+		Images:    urls,
+		Views:     row.Reactions.ViewCount,
+		Likes:     counts.LikeCount,
+		Downloads: counts.DownloadCount,
+		Comments:  row.Reactions.CommentCount,
+		PostedAt:  time.Unix(row.Timestamps.PostedEpoch, 0).UTC(),
+		UpdatedAt: time.Unix(row.Timestamps.UpdatedEpoch, 0).UTC(),
+	}, nil
+}
+
+// iconURL is where NC keeps the icon it names
+func iconURL(name string) string {
+	if name == "" {
+		return ""
+	}
+	return iconOrigin + name
 }
 
 func (c *client) classTable(ctx context.Context) (*classTable, error) {
@@ -822,6 +1013,8 @@ func (c *client) url(ep endpoint) string {
 		return c.config.origin + c.config.dictPrefix + ep.path
 	case communityHost:
 		return c.config.communityURL + ep.path
+	case styleshopHost:
+		return c.config.styleshopURL + ep.path
 	}
 	return c.config.origin + c.config.apiPrefix + ep.path
 }

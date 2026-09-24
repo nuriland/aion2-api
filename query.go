@@ -67,6 +67,36 @@ func (q RankingQuery) query() url.Values {
 	return v
 }
 
+// query asks for 100 rows, the list is 50 today, so one page holds a cap NC doubles
+func (q StyleTop) query() url.Values {
+	v := url.Values{"size": {"100"}}
+	if q.SortBy != "" {
+		v.Set("sortBy", q.SortBy)
+	}
+	if q.Period != "" {
+		v.Set("period", q.Period)
+	}
+	if q.Gender != "" {
+		v.Set("charGender", q.Gender)
+	}
+	return v
+}
+
+// query counts pages from 0 where the SDK counts from 1. Page and Size are already set
+func (q StyleSearch) query() url.Values {
+	v := url.Values{
+		"page": {strconv.Itoa(q.Page - 1)},
+		"size": {strconv.Itoa(q.Size)},
+	}
+	if q.Keyword != "" {
+		v.Set("keyword", q.Keyword)
+	}
+	if q.Field != "" {
+		v.Set("field", q.Field)
+	}
+	return v
+}
+
 // dictLocale is the full tag the dictionary wants where the API takes a short one
 func dictLocale(l Locale) string {
 	switch l {

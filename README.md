@@ -91,6 +91,24 @@ if errors.Is(err, aion2.ErrNoSeason) {
 fmt.Println(board.Season.SeasonNo, len(board.Entries))
 ```
 
+## Styles
+
+```go
+top, _ := kr.TopStyles(ctx, aion2.StyleTop{Period: "DAY_30", SortBy: "LIKES"})
+
+page, _ := kr.SearchStyles(ctx, aion2.StyleSearch{Field: "item", Keyword: "대검", Size: 20})
+
+for look, err := range kr.Styles(ctx, aion2.StyleSearch{Field: "tag", Keyword: "러블리"}) {
+    if err != nil {
+        return err
+    }
+    fmt.Println(look.Title, look.Author.Name, look.Images[0])
+}
+
+style, _ := kr.Style(ctx, top[0].ID) // the text, tags and gear slot by slot: style.Outfit[i].SkinName
+replies, _ := kr.StyleComments(ctx, top[0].ID)
+```
+
 ## News
 
 ```go

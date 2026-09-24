@@ -480,3 +480,63 @@ type Comment struct {
 	Official bool      `json:"official"`         // written by NC staff
 	Author   *Author   `json:"author,omitempty"` // nil on staff comments
 }
+
+// StyleTop picks the styleshop's top list: the 50 most downloaded, or liked, looks of a period
+type StyleTop struct {
+	SortBy string // DOWNLOADS (default) or LIKES
+	Period string // DAY_2, DAY_7 (default), DAY_30, DAY_100 or ALL
+	Gender string // MALE or FEMALE; empty is both
+}
+
+// StyleSearch matches looks by a word in their title and text, or in Field
+type StyleSearch struct {
+	Keyword string
+	Field   string // name (the character's), item (something worn) or tag; empty is title and text
+	Page    int    // default 1
+	Size    int    // default 20; 100 works
+}
+
+// StyleSummary is one styleshop post as the lists show it: a character's look and its screenshots
+type StyleSummary struct {
+	ID        string    `json:"id"`
+	Region    Region    `json:"region"`
+	Title     string    `json:"title"`
+	Summary   string    `json:"summary"`
+	Author    Author    `json:"author"`
+	Images    []string  `json:"images"`
+	Views     int       `json:"views"`
+	Likes     int       `json:"likes"`
+	Downloads int       `json:"downloads"`
+	Comments  int       `json:"comments"`
+	PostedAt  time.Time `json:"postedAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// Style is the post itself: the text, the tags, and what the character wore, slot by slot
+type Style struct {
+	StyleSummary
+	Text   string          `json:"text"`
+	Tags   []string        `json:"tags"` // localized: gender, class, then the moods the poster picked
+	Outfit []StyleSlot     `json:"outfit"`
+	Pet    *StyleItem      `json:"pet,omitempty"`
+	Wing   *StyleItem      `json:"wing,omitempty"`
+	Raw    json.RawMessage `json:"-"`
+}
+
+// StyleSlot is one equipment slot of a look: the item worn and the skin over it; either side may be empty
+type StyleSlot struct {
+	Slot        int    `json:"slot"`
+	ItemName    string `json:"itemName"`
+	ItemGrade   string `json:"itemGrade"`
+	ItemIconURL string `json:"itemIcon"`
+	SkinName    string `json:"skinName"`
+	SkinGrade   string `json:"skinGrade"`
+	SkinIconURL string `json:"skinIcon"`
+}
+
+// StyleItem is a look's pet or wing
+type StyleItem struct {
+	Name    string `json:"itemName"`
+	Grade   string `json:"itemGrade"`
+	IconURL string `json:"itemIcon"`
+}

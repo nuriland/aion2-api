@@ -12,4 +12,5 @@ const (
 	FeatureItemSearch Feature = "item-search" // the dictionary: search, suggest, grades, categories
 	FeatureRankings   Feature = "rankings"
 	FeatureNews       Feature = "news"
+	FeatureStyles     Feature = "styles"
 )

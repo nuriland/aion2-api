@@ -272,6 +272,51 @@ func TestE2EItems(t *testing.T) {
 	}
 }
 
+func TestE2EStyles(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			top, err := c.TopStyles(t.Context(), StyleTop{Period: "DAY_7"}) // recent posts carry the gear; the all-time list has older ones
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(top) == 0 || len(top) > 100 {
+				t.Fatalf("top list has %d looks", len(top))
+			}
+			first := top[0]
+			if first.Region != r.region || first.Author.Ref.CharacterID == "" || len(first.Images) == 0 || first.Downloads == 0 {
+				t.Fatalf("look %+v", first)
+			}
+
+			style, err := c.Style(t.Context(), first.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if style.ID != first.ID || len(style.Outfit) == 0 || len(style.Tags) == 0 || len(style.Images) == 0 || len(style.Raw) == 0 {
+				t.Fatalf("style %+v", style)
+			}
+			if slot := style.Outfit[0]; !strings.HasPrefix(slot.ItemIconURL+slot.SkinIconURL, iconOrigin) {
+				t.Fatalf("slot %+v", slot)
+			}
+			if _, err := c.StyleComments(t.Context(), first.ID); err != nil {
+				t.Fatal(err)
+			}
+
+			page, err := c.SearchStyles(t.Context(), StyleSearch{Size: 3}) // no keyword: every look, newest first
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(page.Items) != 3 || page.Page.Total < 100 || page.Page.LastPage < 2 {
+				t.Fatalf("search %+v", page.Page)
+			}
+			if _, err := c.Style(t.Context(), "nope"); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("unknown id: got %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
+
 func TestE2ERankings(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {

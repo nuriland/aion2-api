@@ -26,6 +26,7 @@ func newTestClient(t *testing.T, region Region, h http.Handler) (*client, *recor
 	}
 	cfg.origin = srv.URL
 	cfg.communityURL = srv.URL + "/community"
+	cfg.styleshopURL = srv.URL + "/styleshop"
 	cfg.httpClient.RetryPause = func() time.Duration { return 0 }
 	return newClient(cfg), rec
 }
@@ -92,6 +93,14 @@ func fixtureFor(p string, q url.Values) string {
 		return "ranking.json"
 	case strings.HasSuffix(p, "/gameconst/item"):
 		return "item.json"
+	case strings.HasPrefix(p, "/styleshop/") && strings.HasSuffix(p, "/moreComment"):
+		return "comments.json"
+	case strings.HasPrefix(p, "/styleshop/board/"):
+		return "style.json"
+	case strings.HasPrefix(p, "/styleshop/") && q.Get("page") == "1":
+		return "styles_page2.json"
+	case strings.HasPrefix(p, "/styleshop/"):
+		return "styles.json"
 	case strings.HasSuffix(p, "/dict/search/item/suggest"):
 		return "suggest.json"
 	case strings.HasSuffix(p, "/dict/search/item") && q.Get("page") == "2":
@@ -204,6 +213,33 @@ func TestDecode(t *testing.T) {
 		t.Fatalf("item %+v", item)
 	}
 
+	top, err := kr.TopStyles(ctx, StyleTop{}) // two pages: the fixture says hasMore once
+	ok(err)
+	if look := top[0]; len(top) != 3 || look.ID != "6a5835f84631532dee3fb8e7" || look.Author.Ref.ServerID != 2001 || len(look.Images) != 2 || look.Downloads != 6033 || look.Views != 28824 {
+		t.Fatalf("top styles %+v", top)
+	}
+
+	looks, err := kr.SearchStyles(ctx, StyleSearch{Keyword: "x", Size: 2})
+	ok(err)
+	if len(looks.Items) != 2 || looks.Page.Total != 3 || looks.Page.LastPage != 2 {
+		t.Fatalf("styles %+v", looks.Page)
+	}
+
+	style, err := kr.Style(ctx, "x")
+	ok(err)
+	if style.Title != "💙 딥 블루 💙" || style.Likes != 82 || len(style.Images) != 2 || len(style.Tags) != 2 || len(style.Outfit) != 2 || style.Pet == nil || len(style.Raw) == 0 {
+		t.Fatalf("style %+v", style)
+	}
+	if slot := style.Outfit[0]; slot.Slot != 1 || slot.SkinIconURL != iconOrigin+"Icon_WP_BW_Pajama_01.png" || style.Pet.IconURL != iconOrigin+"UT_Vehicle_Portrait_Durgal_01.png" {
+		t.Fatalf("outfit %+v pet %+v", slot, style.Pet)
+	}
+
+	replies, err := kr.StyleComments(ctx, "x")
+	ok(err)
+	if len(replies) != 1 || replies[0].PostID != "x" {
+		t.Fatalf("style comments %+v", replies)
+	}
+
 	grades, err := tw.ItemGrades(ctx)
 	ok(err)
 	if len(grades) != 5 || grades[2].ID != "Legend" || grades[2].Name != "Epic" {
@@ -291,6 +327,17 @@ func TestPages(t *testing.T) {
 	if rec.hits.Load() != 0 {
 		t.Fatalf("KR walk made %d requests, want 0", rec.hits.Load())
 	}
+
+	var looks []string
+	for look, err := range kr.Styles(ctx, StyleSearch{Size: 2}) { // 3 matches, 2 a page: the second page is asked for as page=1
+		if err != nil {
+			t.Fatal(err)
+		}
+		looks = append(looks, look.ID)
+	}
+	if len(looks) != 3 || rec.hits.Load() != 2 {
+		t.Fatalf("styles walk: %d looks in %d requests, want 3 in 2", len(looks), rec.hits.Load())
+	}
 }
 
 func TestNotFoundBodies(t *testing.T) {
@@ -304,6 +351,11 @@ func TestNotFoundBodies(t *testing.T) {
 	kr, _ = newTestClient(t, RegionKR, reply{status: 200, body: `{"id":0}`})
 	if _, err := kr.Item(ctx, 1); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("zero item: got %v, want ErrNotFound", err)
+	}
+
+	kr, _ = newTestClient(t, RegionKR, reply{status: 200, body: `{"recommendUpArticle":false,"isScrapArticle":false}`})
+	if _, err := kr.Style(ctx, "x"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("style without article: got %v, want ErrNotFound", err)
 	}
 
 	// An unknown alias lists as empty; only the board itself tells
@@ -331,6 +383,7 @@ func TestDrift(t *testing.T) {
 		"character": func() error { _, err := kr.Character(ctx, alpha); return err },
 		"equipment": func() error { _, err := kr.Equipment(ctx, alpha); return err },
 		"items":     func() error { _, err := tw.SearchItems(ctx, ItemSearch{}); return err },
+		"styles":    func() error { _, err := kr.TopStyles(ctx, StyleTop{}); return err },
 		"rankings": func() error {
 			_, err := kr.Rankings(ctx, RankingQuery{ContentsType: RankingAbyss, ServerID: 1001})
 			return err
@@ -389,6 +442,8 @@ func TestPreflight(t *testing.T) {
 		"post id":    {func() error { _, err := kr.Post(ctx, BoardNotices, ""); return err }, ErrBadRequest},
 		"keyword":    {func() error { _, err := tw.SuggestItems(ctx, ""); return err }, ErrBadRequest},
 		"item id":    {func() error { _, err := kr.Item(ctx, 0); return err }, ErrBadRequest},
+		"style id":   {func() error { _, err := kr.Style(ctx, ""); return err }, ErrBadRequest},
+		"reply id":   {func() error { _, err := kr.StyleComments(ctx, ""); return err }, ErrBadRequest},
 		"kr items":   {func() error { _, err := kr.SearchItems(ctx, ItemSearch{}); return err }, ErrFeatureUnavailable},
 		"kr suggest": {func() error { _, err := kr.SuggestItems(ctx, "a"); return err }, ErrFeatureUnavailable},
 	} {

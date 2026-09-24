@@ -1,0 +1,79 @@
+{
+    "article": {
+        "contentMeta": {
+            "id": "6a5835f84631532dee3fb8e7",
+            "title": "💙 딥 블루 💙",
+            "summary": "비키니와 잘 어울리는 ! 체형은 커마창에서 따로 조절가능합니다~",
+            "writer": {
+                "loginUser": {
+                    "admin": false
+                },
+                "gameUser": {
+                    "gameServerId": "2001",
+                    "gameCharacterId": "oisiQKqpLUdCs_u7SxGgNBZyCdqQbS_CYLfCV6Gwyi4%3D",
+                    "gameCharacterName": "슬석"
+                }
+            },
+            "reactions": {
+                "viewCount": 28824,
+                "commentCount": 10
+            },
+            "timestamps": {
+                "postedEpoch": 1784165880,
+                "updatedEpoch": 1784165880
+            }
+        },
+        "content": {
+            "content": "비키니와 잘 어울리는 !\n\n체형은 커마창에서 따로 조절가능합니다~",
+            "tags": [
+                "여성",
+                "궁성"
+            ],
+            "serviceReserved": {
+                "reserved3": {
+                    "contents": {
+                        "json": "[\"https://fizz-download.playnccdn.com/lg/file/aion2-styleshop/download/19f688a547b-f511b045-edbb-4024-9f25-2668eae611e0\", \"https://fizz-download.playnccdn.com/lg/file/aion2-styleshop/download/19f688ed7cd-1a41ae4e-98fb-445e-9d97-04fb7b2bce41\"]"
+                    }
+                }
+            }
+        },
+        "equippedItems": [
+            {
+                "slot": 1,
+                "itemIcon": "Icon_WP_BW_0117_T05.png",
+                "skinIcon": "Icon_WP_BW_Pajama_01.png",
+                "itemName": "빛나는 멸룡왕의 활",
+                "skinName": "트윙클 리틀 테디베어 (활)",
+                "itemGrade": "EPIC",
+                "skinGrade": "SPECIAL"
+            },
+            {
+                "slot": 2,
+                "itemIcon": "Icon_Equip_AR_L_Zikel_01_Helmet.png",
+                "skinIcon": "Icon_GF_Swimsuit_07_Helmet.png",
+                "itemName": "침식된 잔영의 투구",
+                "skinName": "미드나잇 뮤즈 (투구)",
+                "itemGrade": "EPIC",
+                "skinGrade": "SPECIAL"
+            }
+        ],
+        "petInfo": {
+            "itemIcon": "UT_Vehicle_Portrait_Durgal_01.png",
+            "itemName": "잿더미 두르갈",
+            "itemGrade": "NONE"
+        },
+        "wingInfo": {
+            "itemIcon": "Icon_WingA_007.png",
+            "itemName": "은하의 파편 날개",
+            "itemGrade": "SPECIAL"
+        },
+        "styleshop": {
+            "likeCount": 82,
+            "downloadCount": 6033
+        },
+        "dataVersion": 2
+    },
+    "recommendUpArticle": false,
+    "recommendDownArticle": false,
+    "isScrapArticle": false
+}
