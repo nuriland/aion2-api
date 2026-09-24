@@ -54,9 +54,9 @@ ch, _ := kr.Character(ctx, aion2.CharacterRef{
 
 ## Items
 
-TW only.
-
 ```go
+item, _ := kr.Item(ctx, 110120001) // the definition at +0 with its stats, one request
+
 page, _ := tw.SearchItems(ctx, aion2.ItemSearch{
     Query:       "巨劍",
     Grade:       "Epic",
@@ -72,8 +72,6 @@ for it, err := range tw.Items(ctx, aion2.ItemSearch{Grade: "Epic", Category: "Eq
     }
     fmt.Println(it.ID, it.Name)
 }
-
-item, _ := tw.Item(ctx, 110120001) // first call crawls the catalog once
 
 names, _ := tw.SuggestItems(ctx, "巨劍") // the item page's autocomplete, up to 10 names, no ids
 

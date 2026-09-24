@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-	crawl := flag.Bool("crawl", false, "exercise Item (crawls the whole TW catalog once, ~60 requests at 1 rps)")
 	verbose := flag.Bool("v", false, "log every request")
 	flag.Parse()
 
@@ -85,17 +84,11 @@ func main() {
 	}
 	fmt.Printf("latest KR patch notes: %s (%s)\n", notes[0].Title, notes[0].PostedAt.Format("2006-01-02"))
 
-	if *crawl {
-		start := time.Now()
-		it, err := tw.Item(ctx, 110120001)
+	for _, c := range []aion2.Aion2Client{kr, tw} {
+		it, err := c.Item(ctx, 110120001)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Item: %d %s (%s) — crawl took %s\n", it.ID, it.Name, it.Grade, time.Since(start).Round(time.Second))
-		start = time.Now()
-		if _, err := tw.Item(ctx, 110120002); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("second Item: %s\n", time.Since(start))
+		fmt.Printf("%s item %d: %s (%s), %s %s\n", c.Region(), it.ID, it.Name, it.GradeName, it.MainStats[0].Name, it.MainStats[0].Value)
 	}
 }

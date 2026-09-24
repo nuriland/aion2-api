@@ -25,8 +25,9 @@ var (
 	equippedItemEndpoint = endpoint{feature: FeatureCharacters, path: "/api/character/equipment/item"}
 	daevanionEndpoint    = endpoint{feature: FeatureCharacters, path: "/api/character/daevanion/detail"}
 	rankingsEndpoint     = endpoint{feature: FeatureRankings, path: "/api/ranking/list"}
-	itemsEndpoint        = endpoint{feature: FeatureItems, path: "/dict/search/item", host: dictHost}
-	suggestEndpoint      = endpoint{feature: FeatureItems, path: "/dict/search/item/suggest", host: dictHost}
-	gradesEndpoint       = endpoint{feature: FeatureItems, path: "/game/item/grade", host: dictHost}
-	categoriesEndpoint   = endpoint{feature: FeatureItems, path: "/game/item/category", host: dictHost}
+	itemEndpoint         = endpoint{feature: FeatureItems, path: "/api/gameconst/item"}
+	itemsEndpoint        = endpoint{feature: FeatureItemSearch, path: "/dict/search/item", host: dictHost}
+	suggestEndpoint      = endpoint{feature: FeatureItemSearch, path: "/dict/search/item/suggest", host: dictHost}
+	gradesEndpoint       = endpoint{feature: FeatureItemSearch, path: "/game/item/grade", host: dictHost}
+	categoriesEndpoint   = endpoint{feature: FeatureItemSearch, path: "/game/item/category", host: dictHost}
 )

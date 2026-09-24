@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/nuriland/aion2-api/internal/cache"
-	"github.com/nuriland/aion2-api/internal/httpx"
 )
 
 type Aion2Client interface {
@@ -51,8 +50,7 @@ type Aion2Client interface {
 type client struct {
 	config Config
 
-	classes   cache.Value[*classTable]
-	itemIndex cache.Value[map[int]Item]
+	classes cache.Value[*classTable]
 }
 
 var _ Aion2Client = &client{}
@@ -67,9 +65,8 @@ func New(cfgOpts ConfigOpts) (*client, error) {
 
 func newClient(cfg Config) *client {
 	return &client{
-		config:    cfg,
-		classes:   cache.Value[*classTable]{TTL: cacheTTL},
-		itemIndex: cache.Value[map[int]Item]{TTL: cacheTTL},
+		config:  cfg,
+		classes: cache.Value[*classTable]{TTL: cacheTTL},
 	}
 }
 
@@ -83,9 +80,9 @@ func (c *client) Locale() Locale { return c.config.locale }
 // Rankings answers ErrNoSeason on both regions while NC keeps the public boards off
 func (c *client) Supports(f Feature) bool {
 	switch f {
-	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch, FeatureRankings:
+	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch, FeatureItems, FeatureRankings:
 		return true
-	case FeatureItems:
+	case FeatureItemSearch:
 		return c.config.dictPrefix != ""
 	case FeatureNews:
 		return c.config.communityURL != ""
@@ -351,7 +348,7 @@ func (c *client) Daevanion(ctx context.Context, ref CharacterRef, boardID int) (
 //
 // @TODO: refac
 func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSummary], error) {
-	if err := c.requires(FeatureItems); err != nil {
+	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
 	query := q.query()
@@ -366,21 +363,36 @@ func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSumm
 		}
 		query.Set("classes", class.Name) // case-sensitive: GLADIATOR matches nothing
 	}
-	items, paging, err := c.itemPage(ctx, query)
-	if err != nil {
+	query.Set("locale", dictLocale(c.config.locale))
+
+	var raw itemsResponse
+	if err := c.get(ctx, itemsEndpoint, query, &raw); err != nil {
 		return nil, err
 	}
-	summaries := make([]ItemSummary, len(items))
-	for i, item := range items {
-		summaries[i] = item.ItemSummary
+	if raw.Contents == nil || raw.Pagination == nil {
+		return nil, c.drift(itemsEndpoint, "contents or pagination")
+	}
+	named := 0
+	for i := range raw.Contents {
+		item := &raw.Contents[i]
+		if item.ID == 0 {
+			return nil, c.drift(itemsEndpoint, "id on a row")
+		}
+		if item.Name != "" {
+			named++
+		}
+		item.Region = c.config.region
+	}
+	if len(raw.Contents) > 0 && named == 0 {
+		return nil, c.drift(itemsEndpoint, "item names; locale "+dictLocale(c.config.locale)+" may be unsupported")
 	}
 	return &Paged[ItemSummary]{
-		Items: summaries,
+		Items: raw.Contents,
 		Page: PageInfo{
-			Page:     paging.Page,
-			Size:     paging.Size,
-			Total:    paging.Total,
-			LastPage: paging.LastPage,
+			Page:     raw.Pagination.Page,
+			Size:     raw.Pagination.Size,
+			Total:    raw.Pagination.Total,
+			LastPage: raw.Pagination.LastPage,
 		},
 	}, nil
 }
@@ -396,107 +408,36 @@ func (c *client) Items(ctx context.Context, q ItemSearch) iter.Seq2[ItemSummary,
 	})
 }
 
-// @TODO: refac
-func (c *client) itemPage(ctx context.Context, query url.Values) ([]Item, itemPaging, error) {
-	query.Set("locale", dictLocale(c.config.locale))
-
-	var raw itemsResponse
-	if err := c.get(ctx, itemsEndpoint, query, &raw); err != nil {
-		return nil, itemPaging{}, err
-	}
-	if raw.Contents == nil || raw.Pagination == nil {
-		return nil, itemPaging{}, c.drift(itemsEndpoint, "contents or pagination")
-	}
-
-	items, named := make([]Item, len(raw.Contents)), 0
-	for i, body := range raw.Contents {
-		item := Item{Raw: body}
-		if err := c.decode(itemsEndpoint, body, &item.ItemSummary); err != nil {
-			return nil, itemPaging{}, err
-		}
-		if item.ID == 0 {
-			return nil, itemPaging{}, c.drift(itemsEndpoint, "id on a row")
-		}
-		if item.Name != "" {
-			named++
-		}
-		item.Region = c.config.region
-		items[i] = item
-	}
-	if len(items) > 0 && named == 0 {
-		return nil, itemPaging{}, c.drift(itemsEndpoint, "item names; locale "+dictLocale(c.config.locale)+" may be unsupported")
-	}
-	return items, *raw.Pagination, nil
-}
-
-// Item returns the item with the given ID
+// Item is one item's definition at +0 in the client's locale
 func (c *client) Item(ctx context.Context, id int) (*Item, error) {
-	if err := c.requires(FeatureItems); err != nil {
+	if id <= 0 {
+		return nil, c.errorf(itemEndpoint, ErrBadRequest, "Item needs an id")
+	}
+	query := c.langQuery()
+	query.Set("id", strconv.Itoa(id))
+	query.Set("enchantLevel", "0") // required; it scales the main stats
+
+	var body json.RawMessage
+	if err := c.get(ctx, itemEndpoint, query, &body); err != nil {
 		return nil, err
 	}
-	index, err := c.itemIndex.Get(ctx, c.crawl)
-	if err != nil {
+	item := &Item{}
+	if err := c.decode(itemEndpoint, body, item); err != nil {
 		return nil, err
 	}
-	item, ok := index[id]
-	if !ok {
-		return nil, c.errorf(itemsEndpoint, ErrNotFound, "item %d", id)
+	switch {
+	case item.ID == 0: // an unknown id is 200 with every field zero
+		return nil, c.errorf(itemEndpoint, ErrNotFound, "item %d", id)
+	case item.Name == "":
+		return nil, c.drift(itemEndpoint, "name")
 	}
-	item.Options, item.Raw = slices.Clone(item.Options), slices.Clone(item.Raw)
-	return &item, nil
-}
-
-// crawl reads the whole catalog, one grade at a time.
-//
-// @TODO: refac
-func (c *client) crawl(ctx context.Context) (map[int]Item, error) {
-	grades, err := c.ItemGrades(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		index     = make(map[int]Item, 12000)
-		pause     = httpx.NewLimiter(c.config.crawlPause)
-		pagesRead = 0
-	)
-
-	for _, grade := range grades {
-		for page, lastPage := 1, 1; page <= lastPage; page++ {
-			if pagesRead++; pagesRead > c.config.crawlMaxPages {
-				return nil, c.errorf(itemsEndpoint, ErrUpstream, "crawl stopped: passed %d pages", c.config.crawlMaxPages)
-			}
-			if err := pause.Wait(ctx); err != nil {
-				return nil, err
-			}
-			items, paging, err := c.itemPage(ctx, url.Values{
-				"grades": {grade.ID},
-				"page":   {strconv.Itoa(page)},
-				"size":   {strconv.Itoa(c.config.crawlPageSize)},
-			})
-			if err != nil {
-				return nil, err
-			}
-			// A size param upstream ignores multiplies lastPage without a word.
-			if paging.Size != c.config.crawlPageSize {
-				return nil, c.errorf(itemsEndpoint, ErrUpstream, "crawl stopped: asked for %d rows a page, got %d", c.config.crawlPageSize, paging.Size)
-			}
-			// Past the cap, rows are unreachable. A partial index is worse than none.
-			if paging.Limit > 0 && paging.Total > paging.Limit {
-				return nil, c.errorf(itemsEndpoint, ErrUpstream, "crawl stopped: grade %s has %d items, over the paging cap of %d", grade.ID, paging.Total, paging.Limit)
-			}
-			for _, item := range items {
-				index[item.ID] = item
-			}
-			lastPage = paging.LastPage
-		}
-	}
-	return index, nil
+	item.Region, item.Raw = c.config.region, body
+	return item, nil
 }
 
 // ItemGrades returns the dictionary's grades with their localized names
 func (c *client) ItemGrades(ctx context.Context) ([]ItemGrade, error) {
-	if err := c.requires(FeatureItems); err != nil {
+	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
 	var grades []ItemGrade
@@ -516,7 +457,7 @@ func (c *client) ItemGrades(ctx context.Context) ([]ItemGrade, error) {
 
 // ItemCategories returns the dictionary's category tree with localized names
 func (c *client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
-	if err := c.requires(FeatureItems); err != nil {
+	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
 	var categories []ItemCategory
@@ -536,7 +477,7 @@ func (c *client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
 
 // SuggestItems is the item page's autocomplete: up to 10 names in the client's locale that contain the keyword, no ids
 func (c *client) SuggestItems(ctx context.Context, keyword string) ([]string, error) {
-	if err := c.requires(FeatureItems); err != nil {
+	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
 	if keyword == "" {

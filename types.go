@@ -303,9 +303,31 @@ type ItemSummary struct {
 	Tradable     *bool    `json:"tradable"`
 }
 
+// Item is the game's definition of an item at +0, on every region. EquippedItem is one worn copy with its rolls
 type Item struct {
-	ItemSummary
-	Raw json.RawMessage `json:"-"` // the upstream row, for fields the SDK does not map
+	Region          Region          `json:"region"`
+	ID              int             `json:"id"`
+	Name            string          `json:"name"`
+	Grade           string          `json:"grade"`     // Epic
+	GradeName       string          `json:"gradeName"` // localized: Heroic
+	CategoryName    string          `json:"categoryName"`
+	Type            string          `json:"type"` // Equip, Accessory
+	ImageURL        string          `json:"icon"`
+	ItemLevel       int             `json:"level"`
+	EquipLevel      int             `json:"equipLevel"`
+	MaxEnchantLevel int             `json:"maxEnchantLevel"`
+	MaxExceedLevel  int             `json:"maxExceedEnchantLevel"`
+	RaceName        string          `json:"raceName"`
+	ClassNames      []string        `json:"classNames"`
+	Tradable        bool            `json:"tradable"`
+	MainStats       []ItemStat      `json:"mainStats"`
+	SubStats        []ItemStat      `json:"subStats"`     // the roll ranges, MinValue to Value
+	SubStatCount    int             `json:"subStatCount"` // how many of SubStats a copy gets
+	MagicStoneSlots int             `json:"magicStoneSlotCount"`
+	GodStoneSlots   int             `json:"godStoneSlotCount"`
+	Costumes        []string        `json:"costumes"`
+	Sources         []string        `json:"sources"`
+	Raw             json.RawMessage `json:"-"`
 }
 
 // ItemGrade is a grade as the dictionary names it. ID is what ItemSearch.Grade takes.

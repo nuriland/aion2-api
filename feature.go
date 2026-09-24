@@ -9,6 +9,7 @@ const (
 	FeatureCharacters Feature = "characters"
 	FeatureSearch     Feature = "search"
 	FeatureItems      Feature = "items"
+	FeatureItemSearch Feature = "item-search" // the dictionary: search, suggest, grades, categories
 	FeatureRankings   Feature = "rankings"
 	FeatureNews       Feature = "news"
 )

@@ -1,0 +1,172 @@
+{
+    "id": 110120001,
+    "name": "Noble Dragon Lord Greatsword",
+    "grade": "Epic",
+    "gradeName": "Heroic",
+    "icon": "https://assets.playnccdn.com/static-aion2-gamedata/resources/Icon_WP_GS_0110_T05.png",
+    "level": 108,
+    "levelValue": 0,
+    "enchantLevel": 0,
+    "storable": true,
+    "tradable": true,
+    "tradablePersonal": true,
+    "enchantable": true,
+    "decomposable": true,
+    "maxEnchantLevel": 20,
+    "maxExceedEnchantLevel": 5,
+    "raceName": "Elyos",
+    "classNames": [
+        "Gladiator"
+    ],
+    "categoryName": "Greatsword",
+    "type": "Equip",
+    "equipLevel": 45,
+    "magicStoneSlotCount": 5,
+    "godStoneSlotCount": 1,
+    "costumes": [
+        "Dragonheart (Greatsword)"
+    ],
+    "subStatCount": 6,
+    "subSkillCountMax": 6,
+    "subStatRandom": true,
+    "mainStats": [
+        {
+            "id": "WeaponFixingDamage",
+            "name": "Attack",
+            "minValue": "463",
+            "value": "627",
+            "extra": "0",
+            "exceed": false
+        },
+        {
+            "id": "WeaponAccuracy",
+            "name": "Accuracy",
+            "value": "100",
+            "extra": "0",
+            "exceed": false
+        },
+        {
+            "id": "Critical",
+            "name": "Critical Hit",
+            "value": "150",
+            "extra": "0",
+            "exceed": false
+        },
+        {
+            "id": "PvEAmplifyDamage",
+            "name": "PvE Damage Boost",
+            "value": "5%",
+            "extra": "0%",
+            "exceed": false
+        },
+        {
+            "id": "Block",
+            "name": "Block",
+            "value": "150",
+            "extra": "0",
+            "exceed": false
+        }
+    ],
+    "subStats": [
+        {
+            "id": "STR",
+            "name": "Might",
+            "minValue": "81",
+            "value": "100"
+        },
+        {
+            "id": "AGI",
+            "name": "Precision",
+            "minValue": "81",
+            "value": "100"
+        },
+        {
+            "id": "WeaponFixingDamage",
+            "name": "Attack",
+            "minValue": "32",
+            "value": "44"
+        },
+        {
+            "id": "WeaponAccuracy",
+            "name": "Accuracy",
+            "minValue": "68",
+            "value": "85"
+        },
+        {
+            "id": "Critical",
+            "name": "Critical Hit",
+            "minValue": "37",
+            "value": "50"
+        },
+        {
+            "id": "HPMax",
+            "name": "HP",
+            "minValue": "306",
+            "value": "359"
+        },
+        {
+            "id": "MPMax",
+            "name": "MP",
+            "minValue": "153",
+            "value": "183"
+        },
+        {
+            "id": "CombatSpeed",
+            "name": "Combat Speed",
+            "minValue": "13.8%",
+            "value": "15.9%"
+        },
+        {
+            "id": "AbnormalAccuracy",
+            "name": "Status Effect Chance",
+            "minValue": "23%",
+            "value": "26.5%"
+        },
+        {
+            "id": "AdditionalHitRate",
+            "name": "Multi-hit Chance",
+            "minValue": "9.8%",
+            "value": "11.3%"
+        },
+        {
+            "id": "CriticalAddDamage",
+            "name": "Critical Attack",
+            "minValue": "52",
+            "value": "67"
+        },
+        {
+            "id": "BackAttackDamage",
+            "name": "Back Attack",
+            "minValue": "52",
+            "value": "67"
+        },
+        {
+            "id": "FrontAttackDamage",
+            "name": "Front Attack",
+            "minValue": "52",
+            "value": "67"
+        },
+        {
+            "id": "Block",
+            "name": "Block",
+            "minValue": "57",
+            "value": "73"
+        },
+        {
+            "id": "AmplifyAllDamage",
+            "name": "Damage Boost",
+            "minValue": "6.2%",
+            "value": "7.2%"
+        },
+        {
+            "id": "AmplifyWeaponDamage",
+            "name": "Weapon Damage Boost",
+            "minValue": "14.9%",
+            "value": "17.2%"
+        }
+    ],
+    "sources": [
+        "Crafting"
+    ],
+    "favorite": false
+}

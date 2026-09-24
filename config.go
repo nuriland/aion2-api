@@ -10,12 +10,9 @@ import (
 )
 
 const (
-	defaultRateLimit     = 5                // Requests per second, evenly spaced
-	defaultCrawlMaxPages = 300              // Fuse for the item index crawl; the catalog is ~60 pages
-	defaultCrawlPageSize = 200              // Items per page to crawl for the item index
-	defaultCrawlPause    = 1 * time.Second  // Pause between crawling item pages
-	defaultTimeout       = 15 * time.Second // Default timeout for HTTP requests
-	cacheTTL             = 24 * time.Hour   // How stale the class table and the item index may get
+	defaultRateLimit = 5                // Requests per second, evenly spaced
+	defaultTimeout   = 15 * time.Second // Default timeout for HTTP requests
+	cacheTTL         = 24 * time.Hour   // How stale the class table may get
 
 	portraitOrigin   = "https://profileimg.plaync.com" // character portraits, every region
 	defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
@@ -25,10 +22,6 @@ const (
 type ConfigOpts struct {
 	Region Region
 	Locale Locale
-
-	CrawlPageSize int
-	CrawlMaxPages int
-	CrawlPause    time.Duration
 
 	UserAgent string
 	RateLimit float64
@@ -42,10 +35,6 @@ type Config struct {
 
 	region Region
 	locale Locale
-
-	crawlPageSize int
-	crawlMaxPages int
-	crawlPause    time.Duration
 
 	httpClient *httpx.Client
 }
@@ -92,26 +81,14 @@ func NewConfig(opts ConfigOpts) (Config, error) {
 	if opts.RateLimit <= 0 {
 		opts.RateLimit = defaultRateLimit
 	}
-	if opts.CrawlPageSize <= 0 {
-		opts.CrawlPageSize = defaultCrawlPageSize
-	}
-	if opts.CrawlMaxPages <= 0 {
-		opts.CrawlMaxPages = defaultCrawlMaxPages
-	}
-	if opts.CrawlPause <= 0 {
-		opts.CrawlPause = defaultCrawlPause
-	}
 	if opts.HTTPClient == nil {
 		opts.HTTPClient = &http.Client{Timeout: defaultTimeout}
 	}
 
 	return Config{
-		gameRegion:    region,
-		region:        opts.Region,
-		locale:        opts.Locale,
-		crawlPageSize: opts.CrawlPageSize,
-		crawlMaxPages: opts.CrawlMaxPages,
-		crawlPause:    opts.CrawlPause,
+		gameRegion: region,
+		region:     opts.Region,
+		locale:     opts.Locale,
 		httpClient: &httpx.Client{
 			HTTP:       opts.HTTPClient,
 			UserAgent:  opts.UserAgent,

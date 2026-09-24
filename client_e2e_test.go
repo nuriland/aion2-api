@@ -192,8 +192,8 @@ func TestE2ESearchItems(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
-			if got := c.Supports(FeatureItems); got != r.items {
-				t.Fatalf("Supports(FeatureItems) = %v, want %v", got, r.items)
+			if got := c.Supports(FeatureItemSearch); got != r.items {
+				t.Fatalf("Supports(FeatureItemSearch) = %v, want %v", got, r.items)
 			}
 
 			page, err := c.SearchItems(t.Context(), ItemSearch{Size: 3})
@@ -211,6 +211,25 @@ func TestE2ESearchItems(t *testing.T) {
 			}
 			if page.Items[0].ID != 110120001 {
 				t.Fatalf("got first item %d, want 110120001", page.Items[0].ID)
+			}
+		})
+	}
+}
+
+func TestE2EItem(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			item, err := c.Item(t.Context(), 110120001)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if item.Name != "Noble Dragon Lord Greatsword" || item.Grade != "Epic" || item.Region != r.region || len(item.MainStats) == 0 {
+				t.Fatalf("item %+v", item)
+			}
+			if _, err := c.Item(t.Context(), 1); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("unknown id: got %v, want ErrNotFound", err)
 			}
 		})
 	}

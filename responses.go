@@ -67,8 +67,8 @@ type rankingsResponse struct {
 
 // GET {dictPrefix}/dict/search/item
 type itemsResponse struct {
-	Contents   []json.RawMessage `json:"contents"` // kept raw for Item.Raw
-	Pagination *itemPaging       `json:"pagination"`
+	Contents   []ItemSummary `json:"contents"`
+	Pagination *itemPaging   `json:"pagination"`
 }
 
 // searchRow is a search hit. Ref and the class are built from the extra fields.
@@ -179,7 +179,6 @@ type itemPaging struct {
 	Size     int `json:"size"`
 	LastPage int `json:"lastPage"`
 	Total    int `json:"total"`
-	Limit    int `json:"limit"` // upstream refuses to page past this many rows
 }
 
 // highlight is the markup search wraps around the part of a name that matched.

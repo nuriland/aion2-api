@@ -20,13 +20,12 @@ func newTestClient(t *testing.T, region Region, h http.Handler) (*client, *recor
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	cfg, err := NewConfig(ConfigOpts{Region: region, RateLimit: 1000, CrawlPageSize: 2})
+	cfg, err := NewConfig(ConfigOpts{Region: region, RateLimit: 1000})
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.origin = srv.URL
 	cfg.communityURL = srv.URL + "/community"
-	cfg.crawlPause = 0
 	cfg.httpClient.RetryPause = func() time.Duration { return 0 }
 	return newClient(cfg), rec
 }
@@ -91,6 +90,8 @@ func fixtureFor(p string, q url.Values) string {
 		return "ranking_empty.json"
 	case strings.HasSuffix(p, "/ranking/list"):
 		return "ranking.json"
+	case strings.HasSuffix(p, "/gameconst/item"):
+		return "item.json"
 	case strings.HasSuffix(p, "/dict/search/item/suggest"):
 		return "suggest.json"
 	case strings.HasSuffix(p, "/dict/search/item") && q.Get("page") == "2":
@@ -197,6 +198,12 @@ func TestDecode(t *testing.T) {
 		t.Fatalf("suggest %+v", names)
 	}
 
+	item, err := kr.Item(ctx, 110120001)
+	ok(err)
+	if item.Name != "Noble Dragon Lord Greatsword" || item.Region != RegionKR || item.MainStats[0].Value != "627" || item.SubStatCount != 6 || len(item.Raw) == 0 {
+		t.Fatalf("item %+v", item)
+	}
+
 	grades, err := tw.ItemGrades(ctx)
 	ok(err)
 	if len(grades) != 5 || grades[2].ID != "Legend" || grades[2].Name != "Epic" {
@@ -286,31 +293,17 @@ func TestPages(t *testing.T) {
 	}
 }
 
-func TestItemIndex(t *testing.T) {
-	tw, rec := newTestClient(t, RegionTW, http.HandlerFunc(serveFixtures))
-	ctx := t.Context()
-
-	item, err := tw.Item(ctx, 110120003)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if item.Name != "盧德萊絕滅刀" || len(item.Raw) == 0 {
-		t.Fatalf("item %+v", item)
-	}
-	if _, err := tw.Item(ctx, 1); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("unknown id: got %v, want ErrNotFound", err)
-	}
-	if rec.hits.Load() != 11 {
-		t.Fatalf("index took %d requests, want 11", rec.hits.Load())
-	}
-}
-
 func TestNotFoundBodies(t *testing.T) {
 	ctx := t.Context()
 
 	kr, _ := newTestClient(t, RegionKR, reply{status: 200, body: `{"article":null}`})
 	if _, err := kr.Post(ctx, BoardNotices, "x"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("null article: got %v, want ErrNotFound", err)
+	}
+
+	kr, _ = newTestClient(t, RegionKR, reply{status: 200, body: `{"id":0}`})
+	if _, err := kr.Item(ctx, 1); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("zero item: got %v, want ErrNotFound", err)
 	}
 
 	// An unknown alias lists as empty; only the board itself tells
@@ -395,8 +388,8 @@ func TestPreflight(t *testing.T) {
 		"rankings":   {func() error { _, err := kr.Rankings(ctx, RankingQuery{}); return err }, ErrBadRequest},
 		"post id":    {func() error { _, err := kr.Post(ctx, BoardNotices, ""); return err }, ErrBadRequest},
 		"keyword":    {func() error { _, err := tw.SuggestItems(ctx, ""); return err }, ErrBadRequest},
+		"item id":    {func() error { _, err := kr.Item(ctx, 0); return err }, ErrBadRequest},
 		"kr items":   {func() error { _, err := kr.SearchItems(ctx, ItemSearch{}); return err }, ErrFeatureUnavailable},
-		"kr item":    {func() error { _, err := kr.Item(ctx, 1); return err }, ErrFeatureUnavailable},
 		"kr suggest": {func() error { _, err := kr.SuggestItems(ctx, "a"); return err }, ErrFeatureUnavailable},
 	} {
 		if err := tc.call(); !errors.Is(err, tc.want) {
