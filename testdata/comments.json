@@ -6,6 +6,11 @@
                 "title": null,
                 "summary": null,
                 "thumbnailUrl": null,
+                "hierarchy": {
+                    "root": "",
+                    "parent": ""
+                },
+                "statusCode": 1,
                 "timestamps": {
                     "postedEpoch": 1790171930,
                     "updatedEpoch": 1790171930
@@ -29,7 +34,77 @@
             "content": {
                 "content": "不是空间不足，我也是这样的问题，我120G都没用，我已经重新卸载试试看了，真的我无语了，换了两个加速器，换无数节点都没用"
             }
+        },
+        {
+            "contentMeta": {
+                "id": "6ab3db1a2de5bf50367f7f09",
+                "title": null,
+                "summary": null,
+                "thumbnailUrl": null,
+                "hierarchy": {
+                    "root": "",
+                    "parent": ""
+                },
+                "statusCode": 91,
+                "timestamps": {
+                    "postedEpoch": 1790171000,
+                    "updatedEpoch": 1790171000
+                },
+                "writer": {
+                    "loginUser": {
+                        "admin": false
+                    },
+                    "gameUser": {
+                        "gameServerId": "1001",
+                        "gameCharacterId": "AAAAtestAAAA_-0000000000000000000000000002%3D",
+                        "gameCharacterName": "Beta",
+                        "gameCharacterOriginId": null
+                    }
+                },
+                "reactions": {
+                    "viewCount": 0,
+                    "commentCount": 0
+                }
+            },
+            "content": {
+                "content": "지운 댓글"
+            }
+        },
+        {
+            "contentMeta": {
+                "id": "6ab3db1a2de5bf50367f7f0a",
+                "title": null,
+                "summary": null,
+                "thumbnailUrl": null,
+                "hierarchy": {
+                    "root": "6ab3db1a2de5bf50367f7f09",
+                    "parent": "6ab3db1a2de5bf50367f7f09"
+                },
+                "statusCode": 1,
+                "timestamps": {
+                    "postedEpoch": 1790171500,
+                    "updatedEpoch": 1790171500
+                },
+                "writer": {
+                    "loginUser": {
+                        "admin": false
+                    },
+                    "gameUser": {
+                        "gameServerId": "1001",
+                        "gameCharacterId": "AAAAtestAAAA_-0000000000000000000000000003%3D",
+                        "gameCharacterName": "Gamma",
+                        "gameCharacterOriginId": null
+                    }
+                },
+                "reactions": {
+                    "viewCount": 0,
+                    "commentCount": 0
+                }
+            },
+            "content": {
+                "content": "답글"
+            }
         }
     ],
-    "hasMore": false
+    "hasMore": true
 }

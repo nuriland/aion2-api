@@ -1,0 +1,40 @@
+{
+    "contentList": [
+        {
+            "contentMeta": {
+                "id": "6ab3db1a2de5bf50367f7f07",
+                "title": null,
+                "summary": null,
+                "thumbnailUrl": null,
+                "hierarchy": {
+                    "root": "",
+                    "parent": ""
+                },
+                "statusCode": 1,
+                "timestamps": {
+                    "postedEpoch": 1790170000,
+                    "updatedEpoch": 1790170000
+                },
+                "writer": {
+                    "loginUser": {
+                        "admin": false
+                    },
+                    "gameUser": {
+                        "gameServerId": "1001",
+                        "gameCharacterId": "AAAAtestAAAA_-0000000000000000000000000001%3D",
+                        "gameCharacterName": "Alpha",
+                        "gameCharacterOriginId": null
+                    }
+                },
+                "reactions": {
+                    "viewCount": 0,
+                    "commentCount": 0
+                }
+            },
+            "content": {
+                "content": "첫 댓글"
+            }
+        }
+    ],
+    "hasMore": false
+}

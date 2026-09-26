@@ -96,7 +96,7 @@ fmt.Println(board.Season.SeasonNo, len(board.Entries))
 ```go
 top, _ := kr.TopStyles(ctx, aion2.StyleTop{Period: "DAY_30", SortBy: "LIKES"})
 
-page, _ := kr.SearchStyles(ctx, aion2.StyleSearch{Field: "item", Keyword: "대검", Size: 20})
+page, _ := kr.SearchStyles(ctx, aion2.StyleSearch{Field: "item", Keyword: "대검", Gender: "MALE", Size: 20})
 
 for look, err := range kr.Styles(ctx, aion2.StyleSearch{Field: "tag", Keyword: "러블리"}) {
     if err != nil {
@@ -105,25 +105,36 @@ for look, err := range kr.Styles(ctx, aion2.StyleSearch{Field: "tag", Keyword: "
     fmt.Println(look.Title, look.Author.Name, look.Images[0])
 }
 
-style, _ := kr.Style(ctx, top[0].ID) // the text, tags and gear slot by slot: style.Outfit[i].SkinName
+style, _ := kr.Style(ctx, top[0].ID)
 replies, _ := kr.StyleComments(ctx, top[0].ID)
 ```
 
 ## News
 
 ```go
-notes, _ := kr.Posts(ctx, aion2.BoardPatchNotes) // also BoardDevNews (the CM team's weekly news), BoardNotices
-latest, _ := kr.Post(ctx, aion2.BoardPatchNotes, notes[0].ID) // .HTML is the body
+for note, err := range kr.Posts(ctx, aion2.BoardPatchNotes) {
+    if err != nil {
+        return err
+    }
+    if note.PostedAt.Before(since) {
+        break
+    }
+    latest, _ := kr.Post(ctx, aion2.BoardPatchNotes, note.ID)
+    fmt.Println(latest.Title, latest.PostedAt, len(latest.HTML))
+}
 pinned, _ := kr.PinnedPosts(ctx, aion2.BoardNotices)
-
-fmt.Println(latest.Title, latest.PostedAt, len(latest.HTML))
 ```
 
 ### Player boards 
 
 ```go
-posts, _ := tw.Posts(ctx, aion2.BoardFree) // also BoardRecruit, BoardTips, BoardMedia
-ch, _ := tw.Character(ctx, posts[0].Author.Ref)
-comments, _ := tw.Comments(ctx, aion2.BoardFree, posts[0].ID)
+for post, err := range tw.Posts(ctx, aion2.BoardFree) {
+    if err != nil {
+        return err
+    }
+    ch, _ := tw.Character(ctx, post.Author.Ref)
+    comments, _ := tw.Comments(ctx, aion2.BoardFree, post.ID)
+    break
+}
 ```
 

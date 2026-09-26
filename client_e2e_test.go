@@ -44,6 +44,22 @@ func findCharacter(t *testing.T, c Aion2Client) CharacterSummary {
 	return slices.MaxFunc(res.Items, func(a, b CharacterSummary) int { return cmp.Compare(a.Level, b.Level) })
 }
 
+func latestPosts(t *testing.T, c Aion2Client, board Board, n int) []Post {
+	t.Helper()
+
+	var posts []Post
+	for p, err := range c.Posts(t.Context(), board) {
+		if err != nil {
+			t.Fatal(board, err)
+		}
+		posts = append(posts, p)
+		if len(posts) == n {
+			break
+		}
+	}
+	return posts
+}
+
 func TestE2EServers(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
@@ -289,11 +305,20 @@ func TestE2EStyles(t *testing.T) {
 				t.Fatalf("look %+v", first)
 			}
 
-			style, err := c.Style(t.Context(), first.ID)
-			if err != nil {
-				t.Fatal(err)
+			var style *Style
+			for _, look := range top[:min(5, len(top))] {
+				style, err = c.Style(t.Context(), look.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(style.Outfit) > 0 {
+					break
+				}
 			}
-			if style.ID != first.ID || len(style.Outfit) == 0 || len(style.Tags) == 0 || len(style.Images) == 0 || len(style.Raw) == 0 {
+			if len(style.Outfit) == 0 {
+				t.Fatal("none of the top 5 looks shows its gear")
+			}
+			if len(style.Tags) == 0 || len(style.Images) == 0 || len(style.Raw) == 0 {
 				t.Fatalf("style %+v", style)
 			}
 			if slot := style.Outfit[0]; !strings.HasPrefix(slot.ItemIconURL+slot.SkinIconURL, iconOrigin) {
@@ -309,6 +334,13 @@ func TestE2EStyles(t *testing.T) {
 			}
 			if len(page.Items) != 3 || page.Page.Total < 100 || page.Page.LastPage < 2 {
 				t.Fatalf("search %+v", page.Page)
+			}
+			male, err := c.SearchStyles(t.Context(), StyleSearch{Size: 1, Gender: "MALE"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if male.Page.Total == 0 || male.Page.Total >= page.Page.Total {
+				t.Fatalf("got %d male looks of %d, want fewer", male.Page.Total, page.Page.Total)
 			}
 			if _, err := c.Style(t.Context(), "nope"); !errors.Is(err, ErrNotFound) {
 				t.Fatalf("unknown id: got %v, want ErrNotFound", err)
@@ -366,10 +398,7 @@ func TestE2EPosts(t *testing.T) {
 			}
 
 			for _, board := range []Board{BoardPatchNotes, BoardDevNews, BoardNotices} {
-				posts, err := c.Posts(t.Context(), board)
-				if err != nil {
-					t.Fatal(board, err)
-				}
+				posts := latestPosts(t, c, board, 10)
 				if len(posts) == 0 {
 					t.Fatalf("%s: no posts", board)
 				}
@@ -382,6 +411,21 @@ func TestE2EPosts(t *testing.T) {
 					}
 				}
 			}
+
+			walked, err := collect(c.Posts(t.Context(), BoardPatchNotes))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(walked) <= 25 {
+				t.Fatalf("walked %d patch notes, want more than a page", len(walked))
+			}
+			seen := map[string]bool{}
+			for _, p := range walked {
+				if seen[p.ID] {
+					t.Fatalf("post %s walked twice", p.ID)
+				}
+				seen[p.ID] = true
+			}
 		})
 	}
 }
@@ -391,10 +435,7 @@ func TestE2EPost(t *testing.T) {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
-			posts, err := c.Posts(t.Context(), BoardDevNews)
-			if err != nil {
-				t.Fatal(err)
-			}
+			posts := latestPosts(t, c, BoardDevNews, 1)
 			post, err := c.Post(t.Context(), BoardDevNews, posts[0].ID)
 			if err != nil {
 				t.Fatal(err)
@@ -419,10 +460,7 @@ func TestE2ECommunityPosts(t *testing.T) {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
-			posts, err := c.Posts(t.Context(), BoardFree)
-			if err != nil {
-				t.Fatal(err)
-			}
+			posts := latestPosts(t, c, BoardFree, 10)
 			if len(posts) == 0 {
 				t.Fatal("no posts")
 			}
@@ -448,7 +486,7 @@ func TestE2ECommunityPosts(t *testing.T) {
 				t.Fatalf("got character %q, want the author %q", ch.Profile.Name, author.Name)
 			}
 
-			_, err = c.Posts(t.Context(), Board("nope"))
+			_, err = collect(c.Posts(t.Context(), Board("nope")))
 			if !errors.Is(err, ErrNotFound) {
 				t.Fatalf("got %v, want ErrNotFound", err)
 			}
@@ -480,31 +518,42 @@ func TestE2EPinnedPosts(t *testing.T) {
 func TestE2EComments(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
-			c := newE2EClient(t, r.region)
+			var (
+				c     = newE2EClient(t, r.region)
+				posts = latestPosts(t, c, BoardFree, 25)
+				post  = slices.MaxFunc(posts, func(a, b Post) int { return cmp.Compare(a.Comments, b.Comments) })
+			)
+			if post.Comments == 0 {
+				t.Skip("no commented post among the latest 25")
+			}
 
-			posts, err := c.Posts(t.Context(), BoardFree)
+			comments, err := c.Comments(t.Context(), BoardFree, post.ID)
 			if err != nil {
 				t.Fatal(err)
 			}
-			i := slices.IndexFunc(posts, func(p Post) bool { return p.Comments > 0 })
-			if i < 0 {
-				t.Skip("no commented post among the latest 10")
-			}
-
-			comments, err := c.Comments(t.Context(), BoardFree, posts[i].ID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(comments) == 0 {
-				t.Fatalf("post says %d comments, got none", posts[i].Comments)
-			}
+			live := 0
+			seen := map[string]bool{}
 			for _, cm := range comments {
-				if cm.ID == "" || cm.Text == "" || cm.PostID != posts[i].ID || cm.PostedAt.IsZero() {
+				if cm.ID == "" || cm.PostID != post.ID || cm.PostedAt.IsZero() {
 					t.Fatalf("comment not resolved: %+v", cm)
+				}
+				if cm.ParentID != "" && !seen[cm.ParentID] {
+					t.Fatalf("reply %s comes before its parent %s", cm.ID, cm.ParentID)
+				}
+				seen[cm.ID] = true
+				if cm.Deleted {
+					continue
+				}
+				live++
+				if cm.Text == "" {
+					t.Fatalf("comment without text: %+v", cm)
 				}
 				if cm.Author == nil && !cm.Official {
 					t.Fatalf("comment by nobody: %+v", cm)
 				}
+			}
+			if live < post.Comments {
+				t.Fatalf("got %d comments, post says %d", live, post.Comments)
 			}
 
 			none, err := c.Comments(t.Context(), BoardFree, "000000000000000000000000")

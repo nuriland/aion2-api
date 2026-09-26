@@ -3,6 +3,7 @@ package aion2
 import (
 	"errors"
 	"io"
+	"iter"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -93,8 +94,10 @@ func fixtureFor(p string, q url.Values) string {
 		return "ranking.json"
 	case strings.HasSuffix(p, "/gameconst/item"):
 		return "item.json"
-	case strings.HasPrefix(p, "/styleshop/") && strings.HasSuffix(p, "/moreComment"):
+	case strings.HasSuffix(p, "/moreComment") && q.Get("previousCommentId") == "0":
 		return "comments.json"
+	case strings.HasSuffix(p, "/moreComment") && q.Get("previousCommentId") == "6ab3db1a2de5bf50367f7f09": // the last top-level comment, not the reply after it
+		return "comments_page2.json"
 	case strings.HasPrefix(p, "/styleshop/board/"):
 		return "style.json"
 	case strings.HasPrefix(p, "/styleshop/") && q.Get("page") == "1":
@@ -111,12 +114,12 @@ func fixtureFor(p string, q url.Values) string {
 		return "grades.json"
 	case strings.HasSuffix(p, "/game/item/category"):
 		return "categories.json"
-	case strings.HasSuffix(p, "/article"):
+	case strings.HasSuffix(p, "/moreArticle") && q.Get("previousArticleId") == "0":
 		return "posts.json"
+	case strings.HasSuffix(p, "/moreArticle") && q.Get("previousArticleId") == "6aa99cb8a279104f7d9d5c34":
+		return "posts_page2.json"
 	case strings.HasSuffix(p, "/noticeArticle"):
 		return "pinned.json"
-	case strings.HasSuffix(p, "/moreComment"):
-		return "comments.json"
 	case strings.Contains(p, "/article/"):
 		return "post.json"
 	case strings.Contains(p, "/board/"):
@@ -236,7 +239,7 @@ func TestDecode(t *testing.T) {
 
 	replies, err := kr.StyleComments(ctx, "x")
 	ok(err)
-	if len(replies) != 1 || replies[0].PostID != "x" {
+	if len(replies) != 4 || replies[0].PostID != "x" {
 		t.Fatalf("style comments %+v", replies)
 	}
 
@@ -267,9 +270,9 @@ func TestDecode(t *testing.T) {
 		t.Fatalf("stub board: got %v, want ErrNoSeason", err)
 	}
 
-	posts, err := kr.Posts(ctx, BoardPatchNotes)
+	posts, err := collect(kr.Posts(ctx, BoardPatchNotes))
 	ok(err)
-	if p := posts[0]; len(posts) != 2 || p.ID != "6ab2d738a279104f7d9d5d5b" || p.Title != "[안내] 9/23(수) 업데이트 노트" || !p.Official || p.Author != nil || p.Views != 40326 || p.PostedAt.Unix() != 1790105400 || p.Board != BoardPatchNotes {
+	if p := posts[0]; len(posts) != 3 || p.ID != "6ab2d738a279104f7d9d5d5b" || p.Title != "[안내] 9/23(수) 업데이트 노트" || !p.Official || p.Author != nil || p.Views != 40326 || p.PostedAt.Unix() != 1790105400 || p.Board != BoardPatchNotes {
 		t.Fatalf("post row %+v", p)
 	}
 
@@ -287,9 +290,26 @@ func TestDecode(t *testing.T) {
 
 	comments, err := kr.Comments(ctx, BoardFree, posts[0].ID)
 	ok(err)
-	if c := comments[0]; len(comments) != 1 || c.Author == nil || c.Author.Name != "莓莓爱吃西瓜" || c.Author.Ref != (CharacterRef{1004, "eGhkY4tjR371y1Wzc1UXfCVcgC0f_vlLJ8Ba6kx1p1E="}) || !strings.HasPrefix(c.Text, "不是空间不足") {
+	if c := comments[0]; len(comments) != 4 || c.Author == nil || c.Author.Name != "莓莓爱吃西瓜" || c.Author.Ref != (CharacterRef{1004, "eGhkY4tjR371y1Wzc1UXfCVcgC0f_vlLJ8Ba6kx1p1E="}) || !strings.HasPrefix(c.Text, "不是空间不足") || c.ParentID != "" {
 		t.Fatalf("comment %+v", c)
 	}
+	if gone := comments[1]; !gone.Deleted || gone.Text != "" || gone.Author != nil {
+		t.Fatalf("deleted comment %+v", gone)
+	}
+	if reply := comments[2]; reply.ParentID != comments[1].ID || reply.Deleted || reply.Text != "답글" || reply.Author == nil {
+		t.Fatalf("reply %+v", reply)
+	}
+}
+
+func collect[T any](seq iter.Seq2[T, error]) ([]T, error) {
+	var rows []T
+	for row, err := range seq {
+		if err != nil {
+			return rows, err
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
 }
 
 func TestPages(t *testing.T) {
@@ -338,6 +358,32 @@ func TestPages(t *testing.T) {
 	if len(looks) != 3 || rec.hits.Load() != 2 {
 		t.Fatalf("styles walk: %d looks in %d requests, want 3 in 2", len(looks), rec.hits.Load())
 	}
+
+	rec.hits.Store(0)
+	posts, err := collect(kr.Posts(ctx, BoardPatchNotes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(posts) != 3 || rec.hits.Load() != 2 {
+		t.Fatalf("posts walk: %d posts in %d requests, want 3 in 2", len(posts), rec.hits.Load())
+	}
+}
+
+func TestStuckCursor(t *testing.T) {
+	kr, _ := newTestClient(t, RegionKR, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		q.Set("previousArticleId", "0")
+		q.Set("previousCommentId", "0")
+		http.ServeFile(w, r, filepath.Join("testdata", fixtureFor(r.URL.Path, q)))
+	}))
+	ctx := t.Context()
+
+	if _, err := collect(kr.Posts(ctx, BoardPatchNotes)); !errors.Is(err, ErrUpstream) {
+		t.Fatalf("posts: got %v, want drift under ErrUpstream", err)
+	}
+	if _, err := kr.Comments(ctx, BoardFree, "x"); !errors.Is(err, ErrUpstream) {
+		t.Fatalf("comments: got %v, want drift under ErrUpstream", err)
+	}
 }
 
 func TestNotFoundBodies(t *testing.T) {
@@ -360,13 +406,13 @@ func TestNotFoundBodies(t *testing.T) {
 
 	// An unknown alias lists as empty; only the board itself tells
 	kr, _ = newTestClient(t, RegionKR, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/article") {
-			io.WriteString(w, `{"contentList":[]}`)
+		if strings.HasSuffix(r.URL.Path, "/moreArticle") {
+			io.WriteString(w, `{"contentList":[],"hasMore":false}`)
 			return
 		}
 		io.WriteString(w, `{"board":null}`)
 	}))
-	if _, err := kr.Posts(ctx, Board("nope")); !errors.Is(err, ErrNotFound) {
+	if _, err := collect(kr.Posts(ctx, Board("nope"))); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unknown board: got %v, want ErrNotFound", err)
 	}
 }
@@ -388,7 +434,8 @@ func TestDrift(t *testing.T) {
 			_, err := kr.Rankings(ctx, RankingQuery{ContentsType: RankingAbyss, ServerID: 1001})
 			return err
 		},
-		"posts": func() error { _, err := kr.Posts(ctx, BoardNotices); return err },
+		"posts":    func() error { _, err := collect(kr.Posts(ctx, BoardNotices)); return err },
+		"comments": func() error { _, err := kr.Comments(ctx, BoardFree, "x"); return err },
 	} {
 		err := call()
 		if !errors.Is(err, ErrUpstream) || !strings.Contains(err.Error(), "response has no ") {

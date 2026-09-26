@@ -106,9 +106,10 @@ type searchPaging struct {
 	EndPage int `json:"endPage"`
 }
 
-// GET {communityURL}/board/{alias}/article
+// GET {communityURL}/board/{alias}/article/search/moreArticle
 type postsResponse struct {
 	ContentList []postRow `json:"contentList"`
+	HasMore     bool      `json:"hasMore"`
 }
 
 // GET {communityURL}/board/{alias}/article/{id}
@@ -132,10 +133,32 @@ type pinnedResponse struct {
 
 // GET {communityURL}/board/{alias}/article/{id}/comment/search/moreComment
 type commentsResponse struct {
-	ContentList []articleRow `json:"contentList"`
+	ContentList []commentRow `json:"contentList"`
+	HasMore     bool         `json:"hasMore"`
 }
 
-// articleRow is a post or a comment with its body. A comment is a post row without a title.
+// commentRow is a post row without a title, placed under its parent. Replies follow the comment they answer
+type commentRow struct {
+	ContentMeta struct {
+		postRow
+		Hierarchy struct {
+			Parent string `json:"parent"` // empty on a top-level comment
+		} `json:"hierarchy"`
+		StatusCode int `json:"statusCode"`
+	} `json:"contentMeta"`
+	Content struct {
+		Body string `json:"content"`
+	} `json:"content"`
+}
+
+// deleted is statusCode 91 DELETE_USER or 92 DELETE_ADMIN. NC still sends the text, but the site hides it
+//
+// @TODO: add enums for these hardcoded values
+func (r commentRow) deleted() bool {
+	return r.ContentMeta.StatusCode == 91 || r.ContentMeta.StatusCode == 92
+}
+
+// articleRow is a post with its body
 type articleRow struct {
 	ContentMeta postRow `json:"contentMeta"`
 	Content     struct {

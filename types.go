@@ -475,7 +475,9 @@ type Author struct {
 type Comment struct {
 	ID       string    `json:"id"`
 	PostID   string    `json:"postId"`
+	ParentID string    `json:"parentId,omitempty"`
 	Text     string    `json:"text"`
+	Deleted  bool      `json:"deleted"`
 	PostedAt time.Time `json:"postedAt"`
 	Official bool      `json:"official"`         // written by NC staff
 	Author   *Author   `json:"author,omitempty"` // nil on staff comments
@@ -492,6 +494,7 @@ type StyleTop struct {
 type StyleSearch struct {
 	Keyword string
 	Field   string // name (the character's), item (something worn) or tag; empty is title and text
+	Gender  string // MALE or FEMALE, I think empty is both but I'm not sure
 	Page    int    // default 1
 	Size    int    // default 20; 100 works
 }
@@ -512,7 +515,8 @@ type StyleSummary struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-// Style is the post itself: the text, the tags, and what the character wore, slot by slot
+// Style is the post itself: the text, the tags, and what the character wore, slot by slot.
+// The gear is empty when the poster hid it
 type Style struct {
 	StyleSummary
 	Text   string          `json:"text"`

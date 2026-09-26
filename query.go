@@ -94,6 +94,9 @@ func (q StyleSearch) query() url.Values {
 	if q.Field != "" {
 		v.Set("field", q.Field)
 	}
+	if q.Gender != "" {
+		v.Set("charGender", q.Gender)
+	}
 	return v
 }
 

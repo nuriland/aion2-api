@@ -41,7 +41,7 @@ type Aion2Client interface {
 
 	Rankings(context.Context, RankingQuery) (*RankingPage, error)
 
-	Posts(context.Context, Board) ([]Post, error)
+	Posts(context.Context, Board) iter.Seq2[Post, error]
 	PinnedPosts(context.Context, Board) ([]Post, error)
 	Post(context.Context, Board, string) (*Post, error)
 	Comments(context.Context, Board, string) ([]Comment, error)
@@ -544,37 +544,27 @@ func (c *client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, er
 	return &RankingPage{Region: c.config.region, Season: raw.Season, Entries: entries}, nil
 }
 
-// Posts returns a board's latest posts, newest first. Upstream serves ten and does not page.
-func (c *client) Posts(ctx context.Context, board Board) ([]Post, error) {
-	if err := c.requires(FeatureNews); err != nil {
-		return nil, err
-	}
-	ep := c.boardEndpoint(board, "/article")
-
-	var raw postsResponse
-	if err := c.get(ctx, ep, nil, &raw); err != nil {
-		return nil, err
-	}
-	if raw.ContentList == nil {
-		return nil, c.drift(ep, "contentList")
-	}
-
-	if len(raw.ContentList) == 0 {
-		// An unknown alias gets the same empty 200 as a quiet board
-		if err := c.boardExists(ctx, board); err != nil {
-			return nil, err
+// Posts walks a post board in a reverse chronological order starting from newest first, back to its first post
+func (c *client) Posts(ctx context.Context, board Board) iter.Seq2[Post, error] {
+	return func(yield func(Post, error) bool) {
+		if err := c.requires(FeatureNews); err != nil {
+			yield(Post{}, err)
+			return
+		}
+		for cursor := "0"; cursor != ""; {
+			posts, next, err := c.postPage(ctx, board, cursor)
+			if err != nil {
+				yield(Post{}, err)
+				return
+			}
+			for _, post := range posts {
+				if !yield(post, nil) {
+					return
+				}
+			}
+			cursor = next
 		}
 	}
-
-	posts := make([]Post, len(raw.ContentList))
-	for i, row := range raw.ContentList {
-		post, err := c.post(ep, board, row)
-		if err != nil {
-			return nil, err
-		}
-		posts[i] = post
-	}
-	return posts, nil
 }
 
 // Post returns one post with its body as HTML
@@ -629,8 +619,8 @@ func (c *client) PinnedPosts(ctx context.Context, board Board) ([]Post, error) {
 	return posts, nil
 }
 
-// Comments returns the replies under a post, as NC lists them. Upstream does not page, and an
-// unknown post reads as no comments.
+// Comments returns every comment under a post, newest first, each followed by its replies.
+// An unknown post reads as no comments
 func (c *client) Comments(ctx context.Context, board Board, postID string) ([]Comment, error) {
 	if err := c.requires(FeatureNews); err != nil {
 		return nil, err
@@ -756,36 +746,112 @@ func (c *client) StyleComments(ctx context.Context, id string) ([]Comment, error
 	return c.comments(ctx, c.styleEndpoint("/board/"+c.config.styleshopSite+"/article/"+url.PathEscape(id)+"/comment/search/moreComment"), id)
 }
 
-// comments reads the replies under a post, on the boards or the styleshop
+// comments reads every comment under a post, on the boards or the styleshop
 func (c *client) comments(ctx context.Context, ep endpoint, postID string) ([]Comment, error) {
-	var raw commentsResponse
-	if err := c.get(ctx, ep, nil, &raw); err != nil {
-		return nil, err
-	}
-	if raw.ContentList == nil {
-		return nil, c.drift(ep, "contentList")
-	}
-
-	comments := make([]Comment, len(raw.ContentList))
-	for i, row := range raw.ContentList {
-		meta := row.ContentMeta
-		if meta.ID == "" {
-			return nil, c.drift(ep, "id on a comment")
-		}
-		author, err := c.author(ep, meta)
+	var comments []Comment
+	for cursor := "0"; cursor != ""; {
+		page, next, err := c.commentPage(ctx, ep, postID, cursor)
 		if err != nil {
 			return nil, err
 		}
-		comments[i] = Comment{
-			ID:       meta.ID,
-			PostID:   postID,
-			Text:     html.UnescapeString(row.Content.Body),
-			PostedAt: time.Unix(meta.Timestamps.PostedEpoch, 0).UTC(),
-			Official: meta.Writer.LoginUser.Admin,
-			Author:   author,
-		}
+		comments = append(comments, page...)
+		cursor = next
 	}
 	return comments, nil
+}
+
+// commentPage reads the top-level comments before the given cursor flag, each followed by its replies. The next cursor is its last top-level comment
+func (c *client) commentPage(ctx context.Context, ep endpoint, postID, cursor string) ([]Comment, string, error) {
+	query := url.Values{
+		"moreSize":          {"200"},
+		"moreDirection":     {"BEFORE"},
+		"previousCommentId": {cursor},
+		"orderType":         {"desc"},
+	}
+	var raw commentsResponse
+	if err := c.get(ctx, ep, query, &raw); err != nil {
+		return nil, "", err
+	}
+	if raw.ContentList == nil {
+		return nil, "", c.drift(ep, "contentList")
+	}
+
+	comments := make([]Comment, len(raw.ContentList))
+	next := ""
+	for i, row := range raw.ContentList {
+		meta := row.ContentMeta
+		if meta.ID == "" {
+			return nil, "", c.drift(ep, "id on a comment")
+		}
+		comment := Comment{
+			ID:       meta.ID,
+			PostID:   postID,
+			ParentID: meta.Hierarchy.Parent,
+			Deleted:  row.deleted(),
+			PostedAt: time.Unix(meta.Timestamps.PostedEpoch, 0).UTC(),
+			Official: meta.Writer.LoginUser.Admin,
+		}
+		if !comment.Deleted {
+			author, err := c.author(ep, meta.postRow)
+			if err != nil {
+				return nil, "", err
+			}
+			comment.Text, comment.Author = html.UnescapeString(row.Content.Body), author
+		}
+		if comment.ParentID == "" {
+			next = meta.ID
+		}
+		comments[i] = comment
+	}
+	if !raw.HasMore {
+		return comments, "", nil
+	}
+	if next == cursor {
+		return nil, "", c.drift(ep, "a cursor that moves")
+	}
+	return comments, next, nil
+}
+
+// postPage reads the posts before cursor, newest first. The next cursor is its last post
+func (c *client) postPage(ctx context.Context, board Board, cursor string) ([]Post, string, error) {
+	ep := c.boardEndpoint(board, "/article/search/moreArticle")
+	query := url.Values{
+		"moreSize":          {"100"},
+		"moreDirection":     {"BEFORE"},
+		"previousArticleId": {cursor},
+	}
+
+	var raw postsResponse
+	if err := c.get(ctx, ep, query, &raw); err != nil {
+		return nil, "", err
+	}
+	if raw.ContentList == nil {
+		return nil, "", c.drift(ep, "contentList")
+	}
+	if len(raw.ContentList) == 0 && cursor == "0" {
+		if err := c.boardExists(ctx, board); err != nil {
+			return nil, "", err
+		}
+	}
+
+	var (
+		posts = make([]Post, len(raw.ContentList))
+		next  = ""
+	)
+	for i, row := range raw.ContentList {
+		post, err := c.post(ep, board, row)
+		if err != nil {
+			return nil, "", err
+		}
+		posts[i], next = post, post.ID
+	}
+	if !raw.HasMore {
+		return posts, "", nil
+	}
+	if next == cursor {
+		return nil, "", c.drift(ep, "a cursor that moves")
+	}
+	return posts, next, nil
 }
 
 func (c *client) boardExists(ctx context.Context, board Board) error {
