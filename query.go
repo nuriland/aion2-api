@@ -15,9 +15,11 @@ func (q CharacterSearch) query() url.Values {
 	}
 	v := url.Values{
 		"keyword": {q.Keyword},
-		"race":    {strconv.Itoa(q.RaceID)}, // 1 = Ely, 2 = Asmo
 		"page":    {strconv.Itoa(max(q.Page, 1))},
 		"size":    {strconv.Itoa(size)},
+	}
+	if q.RaceID > 0 {
+		v.Set("race", strconv.Itoa(q.RaceID))
 	}
 	if q.ServerID > 0 {
 		v.Set("serverId", strconv.Itoa(q.ServerID))
@@ -100,13 +102,18 @@ func (q StyleSearch) query() url.Values {
 	return v
 }
 
-// dictLocale is the full tag the dictionary wants where the API takes a short one
-func dictLocale(l Locale) string {
-	switch l {
-	case LocaleKO:
-		return "ko-KR"
-	case LocaleEN:
-		return "en-US"
+var fullTags = map[Locale]string{
+	LocaleKO: "ko-KR",
+	LocaleEN: "en-US",
+	LocaleDE: "de-DE",
+	LocaleES: "es-ES",
+	LocaleFR: "fr-FR",
+	LocaleJA: "ja-JP",
+}
+
+func fullTag(l Locale) string {
+	if tag, ok := fullTags[l]; ok {
+		return tag
 	}
 	return string(l)
 }

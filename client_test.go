@@ -1,31 +1,36 @@
 package aion2
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"iter"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
-func newTestClient(t *testing.T, region Region, h http.Handler) (*client, *recorder) {
+func newTestClient(t *testing.T, opts ConfigOpts, h http.Handler) (*client, *recorder) {
 	t.Helper()
 	rec := &recorder{next: h}
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	cfg, err := NewConfig(ConfigOpts{Region: region, RateLimit: 1000})
+	opts.RateLimit = 1000 // @TODO: better rate limiting based on the actual backend rate limit
+	cfg, err := NewConfig(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.origin = srv.URL
+	cfg.searchURL = srv.URL + "/search"
 	cfg.communityURL = srv.URL + "/community"
 	cfg.styleshopURL = srv.URL + "/styleshop"
 	cfg.httpClient.RetryPause = func() time.Duration { return 0 }
@@ -74,6 +79,8 @@ func fixtureFor(p string, q url.Values) string {
 		return "classes.json"
 	case strings.HasSuffix(p, "/gameinfo/pcdata"):
 		return "pcdata.json"
+	case strings.HasSuffix(p, "/search/character") && q.Has("region"):
+		return "search_global.json"
 	case strings.HasSuffix(p, "/search/character"):
 		return "search.json"
 	case strings.HasSuffix(p, "/character/info") && nobody:
@@ -134,8 +141,8 @@ var (
 )
 
 func TestDecode(t *testing.T) {
-	kr, _ := newTestClient(t, RegionKR, http.HandlerFunc(serveFixtures))
-	tw, _ := newTestClient(t, RegionTW, http.HandlerFunc(serveFixtures))
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR}, http.HandlerFunc(serveFixtures))
+	tw, _ := newTestClient(t, ConfigOpts{Region: RegionTW}, http.HandlerFunc(serveFixtures))
 	ctx := t.Context()
 	ok := func(err error) {
 		t.Helper()
@@ -313,7 +320,7 @@ func collect[T any](seq iter.Seq2[T, error]) ([]T, error) {
 }
 
 func TestPages(t *testing.T) {
-	tw, rec := newTestClient(t, RegionTW, http.HandlerFunc(serveFixtures))
+	tw, rec := newTestClient(t, ConfigOpts{Region: RegionTW}, http.HandlerFunc(serveFixtures))
 	ctx := t.Context()
 
 	var ids []int
@@ -338,7 +345,7 @@ func TestPages(t *testing.T) {
 		t.Fatalf("break after one item made %d requests, want 1", rec.hits.Load())
 	}
 
-	kr, rec := newTestClient(t, RegionKR, http.HandlerFunc(serveFixtures))
+	kr, rec := newTestClient(t, ConfigOpts{Region: RegionKR}, http.HandlerFunc(serveFixtures))
 	for _, err := range kr.Items(ctx, ItemSearch{}) {
 		if !errors.Is(err, ErrFeatureUnavailable) {
 			t.Fatalf("KR walk: got %v, want ErrFeatureUnavailable", err)
@@ -370,7 +377,7 @@ func TestPages(t *testing.T) {
 }
 
 func TestStuckCursor(t *testing.T) {
-	kr, _ := newTestClient(t, RegionKR, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		q.Set("previousArticleId", "0")
 		q.Set("previousCommentId", "0")
@@ -389,23 +396,23 @@ func TestStuckCursor(t *testing.T) {
 func TestNotFoundBodies(t *testing.T) {
 	ctx := t.Context()
 
-	kr, _ := newTestClient(t, RegionKR, reply{status: 200, body: `{"article":null}`})
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR}, reply{status: 200, body: `{"article":null}`})
 	if _, err := kr.Post(ctx, BoardNotices, "x"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("null article: got %v, want ErrNotFound", err)
 	}
 
-	kr, _ = newTestClient(t, RegionKR, reply{status: 200, body: `{"id":0}`})
+	kr, _ = newTestClient(t, ConfigOpts{Region: RegionKR}, reply{status: 200, body: `{"id":0}`})
 	if _, err := kr.Item(ctx, 1); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("zero item: got %v, want ErrNotFound", err)
 	}
 
-	kr, _ = newTestClient(t, RegionKR, reply{status: 200, body: `{"recommendUpArticle":false,"isScrapArticle":false}`})
+	kr, _ = newTestClient(t, ConfigOpts{Region: RegionKR}, reply{status: 200, body: `{"recommendUpArticle":false,"isScrapArticle":false}`})
 	if _, err := kr.Style(ctx, "x"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("style without article: got %v, want ErrNotFound", err)
 	}
 
 	// An unknown alias lists as empty; only the board itself tells
-	kr, _ = newTestClient(t, RegionKR, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	kr, _ = newTestClient(t, ConfigOpts{Region: RegionKR}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/moreArticle") {
 			io.WriteString(w, `{"contentList":[],"hasMore":false}`)
 			return
@@ -418,8 +425,8 @@ func TestNotFoundBodies(t *testing.T) {
 }
 
 func TestDrift(t *testing.T) {
-	kr, _ := newTestClient(t, RegionKR, reply{status: 200, body: `{}`})
-	tw, _ := newTestClient(t, RegionTW, reply{status: 200, body: `{}`})
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR}, reply{status: 200, body: `{}`})
+	tw, _ := newTestClient(t, ConfigOpts{Region: RegionTW}, reply{status: 200, body: `{}`})
 	ctx := t.Context()
 
 	for name, call := range map[string]func() error{
@@ -457,7 +464,7 @@ func TestStatus(t *testing.T) {
 		{reply{status: 429, retryAfter: "10"}, ErrRateLimited, 1, 10 * time.Second}, // too long to wait for
 		{reply{status: 503}, ErrUpstream, 2, 0},
 	} {
-		kr, rec := newTestClient(t, RegionKR, tc.reply)
+		kr, rec := newTestClient(t, ConfigOpts{Region: RegionKR}, tc.reply)
 		_, err := kr.Servers(t.Context())
 
 		var apiErr *APIError
@@ -474,8 +481,8 @@ func TestStatus(t *testing.T) {
 }
 
 func TestPreflight(t *testing.T) {
-	kr, rec := newTestClient(t, RegionKR, http.HandlerFunc(serveFixtures))
-	tw, twRec := newTestClient(t, RegionTW, http.HandlerFunc(serveFixtures))
+	kr, rec := newTestClient(t, ConfigOpts{Region: RegionKR}, http.HandlerFunc(serveFixtures))
+	tw, twRec := newTestClient(t, ConfigOpts{Region: RegionTW}, http.HandlerFunc(serveFixtures))
 	ctx := t.Context()
 
 	for name, tc := range map[string]struct {
@@ -483,6 +490,7 @@ func TestPreflight(t *testing.T) {
 		want error
 	}{
 		"search":     {func() error { _, err := kr.SearchCharacters(ctx, CharacterSearch{}); return err }, ErrBadRequest},
+		"kr races":   {func() error { _, err := kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a"}); return err }, ErrBadRequest},
 		"ref":        {func() error { _, err := kr.Character(ctx, CharacterRef{}); return err }, ErrBadRequest},
 		"slot":       {func() error { _, err := kr.EquippedItem(ctx, alpha, EquipSlot{}); return err }, ErrBadRequest},
 		"rankings":   {func() error { _, err := kr.Rankings(ctx, RankingQuery{}); return err }, ErrBadRequest},
@@ -505,7 +513,7 @@ func TestPreflight(t *testing.T) {
 
 func TestCharacterIDEncoding(t *testing.T) {
 	var sent atomic.Pointer[string]
-	kr, _ := newTestClient(t, RegionKR, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/character/info") {
 			q := r.URL.RawQuery
 			sent.Store(&q)
@@ -522,5 +530,109 @@ func TestCharacterIDEncoding(t *testing.T) {
 	}
 	if q := *sent.Load(); strings.Count(q, "%3D") != 1 || strings.Contains(q, "%253D") {
 		t.Fatalf("query %q, want the id encoded once", q)
+	}
+}
+
+func TestGlobal(t *testing.T) {
+	var (
+		mu   sync.Mutex
+		sent []*url.URL
+	)
+	sa, _ := newTestClient(t, ConfigOpts{Region: RegionSA, Locale: LocalePTBR}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		sent = append(sent, r.URL)
+		mu.Unlock()
+
+		serveFixtures(w, r)
+	}))
+
+	// @TODO: I hate this pattern, but I cba to think of a better way right now
+	ok := func(err error) {
+		t.Helper()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var (
+		ctx        = t.Context()
+		found, err = sa.SearchCharacters(ctx, CharacterSearch{Keyword: "a"}) // both races
+	)
+	ok(err)
+
+	if hit := found.Items[0]; hit.Region != RegionSA || hit.Ref.ServerID != 1401 || hit.ClassID != 8 || !strings.HasPrefix(hit.ImageURL, portraitOrigin+"/game_profile_images/aion2global/") {
+		t.Fatalf("hit %+v", hit)
+	}
+	_, err = sa.Servers(ctx)
+	ok(err)
+	_, err = sa.Character(ctx, alpha)
+	ok(err)
+	eq, err := sa.Equipment(ctx, alpha)
+	ok(err)
+	_, err = sa.EquippedItem(ctx, alpha, eq.Slots[0])
+	ok(err)
+	_, err = sa.Daevanion(ctx, alpha, 71)
+	ok(err)
+	_, err = sa.Item(ctx, 110120001)
+	ok(err)
+	_, err = sa.Rankings(ctx, RankingQuery{ContentsType: RankingAbyss, ServerID: 1401})
+	ok(err)
+	_, err = sa.PinnedPosts(ctx, BoardNotices)
+	ok(err)
+
+	// NC falls back to North America East on a missing or unknown shard, so every site call must name it
+	for _, u := range sent {
+		q := u.Query()
+		switch {
+		case strings.HasPrefix(u.Path, "/community/"):
+			if !strings.Contains(u.Path, "/notice_pt/") {
+				t.Errorf("board %s, want notice_pt", u.Path)
+			}
+		case strings.HasSuffix(u.Path, "/gameconst/item"):
+			if !strings.HasPrefix(u.Path, "/pt-br/api/") || q.Get("lang") != "pt-BR" || q.Has("region") {
+				t.Errorf("%s?%s, want it under /pt-br with lang pt-BR and no region", u.Path, u.RawQuery)
+			}
+		case u.Path == "/search/character":
+			if q.Get("region") != "la" || q.Get("localeInfo") != "pt-BR" || q.Has("race") {
+				t.Errorf("search %s, want region la, localeInfo pt-BR and no race", u.RawQuery)
+			}
+		case strings.Contains(u.Path, "/gameinfo/"):
+			if !strings.HasPrefix(u.Path, "/pt-br/api/") || q.Get("lang") != "pt-BR" || q.Get("region") != "la" {
+				t.Errorf("%s?%s, want it under /pt-br with lang pt-BR and region la", u.Path, u.RawQuery)
+			}
+		default:
+			if !strings.HasPrefix(u.Path, "/api/") || q.Get("lang") != "pt-BR" || q.Get("region") != "la" {
+				t.Errorf("%s?%s, want it at the root with lang pt-BR and region la", u.Path, u.RawQuery)
+			}
+		}
+	}
+
+	eu, _ := newTestClient(t, ConfigOpts{Region: RegionEU}, http.HandlerFunc(serveFixtures))
+	if _, err := eu.SearchCharacters(ctx, CharacterSearch{Keyword: "a"}); !errors.Is(err, ErrUpstream) {
+		t.Fatalf("rows from another shard: got %v, want ErrUpstream", err)
+	}
+}
+
+func TestNewConfig(t *testing.T) {
+	if _, err := NewConfig(ConfigOpts{Region: "global"}); !errors.Is(err, ErrUnsupportedRegion) {
+		t.Fatalf("unknown region: got %v, want ErrUnsupportedRegion", err)
+	}
+	if _, err := NewConfig(ConfigOpts{Region: RegionEU, Locale: LocaleKO}); err == nil {
+		t.Fatal("Korean on Global: got no error")
+	}
+}
+
+func TestNoRoute(t *testing.T) {
+	var logged bytes.Buffer
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR, Logger: slog.New(slog.NewTextHandler(&logged, nil))},
+		reply{status: 404, body: `{"status":404,"result":{"exceptionClassName":"NoResourceFoundException"}}`})
+
+	_, err := kr.Servers(t.Context())
+	if !errors.Is(err, ErrUpstream) || errors.Is(err, ErrNotFound) {
+		t.Fatalf("got %v, want ErrUpstream: the route is gone, not the thing asked for", err)
+	}
+	if !strings.Contains(logged.String(), "level=WARN") {
+		t.Fatalf("logged %q, want a warning", logged.String())
 	}
 }

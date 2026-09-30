@@ -14,15 +14,24 @@ const (
 	LocaleKO   Locale = "ko"    // Korean
 	LocaleZHTW Locale = "zh-TW" // Taiwanese
 	LocaleEN   Locale = "en"    // English
+	LocaleDE   Locale = "de"    // German
+	LocaleES   Locale = "es"    // Spanish
+	LocaleFR   Locale = "fr"    // French
+	LocaleJA   Locale = "ja"    // Japanese
+	LocalePTBR Locale = "pt-BR" // Brazilian Portuguese
 )
 
-// Region is the region of the AION 2 website, not the language
+// Region is one game shard's website, not the language
 type Region string
 
 const (
-	RegionKR     Region = "kr"
-	RegionTW     Region = "tw"
-	RegionGlobal Region = "global" // reserved
+	RegionKR   Region = "kr"
+	RegionTW   Region = "tw"
+	RegionNAE  Region = "nae"
+	RegionNAW  Region = "naw"
+	RegionEU   Region = "eu"
+	RegionSA   Region = "sa"
+	RegionAsia Region = "asia"
 )
 
 // Server is one world. IDs collide across regions
@@ -121,7 +130,7 @@ type DaevanionSummary struct {
 
 type CharacterSearch struct {
 	Keyword  string // required
-	RaceID   int    // required, 1 = Ely, 2 = Asmo
+	RaceID   int    // 1 = Ely, 2 = Asmo (0 = both, but only works on global servers for some reason)
 	ServerID int    // 0 = every server in the region
 	ClassIDs []int  // Class.ID values
 	Sort     string

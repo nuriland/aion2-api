@@ -1,0 +1,32 @@
+{
+    "list": [
+        {
+            "characterId": "AAAAtestAAAA_-0000000000000000000000000003%3D",
+            "name": "<strong>G</strong>amma",
+            "race": 1,
+            "pcId": 29,
+            "level": 12,
+            "serverId": 1401,
+            "serverName": "Siel",
+            "profileImageUrl": "/game_profile_images/aion2global/images?gameServerKey=1401&charKey=3",
+            "region": "la"
+        },
+        {
+            "characterId": "AAAAtestAAAA_-0000000000000000000000000004%3D",
+            "name": "Delt<strong>a</strong>",
+            "race": 2,
+            "pcId": 7,
+            "level": 9,
+            "serverId": 2401,
+            "serverName": "Israphel",
+            "profileImageUrl": "/game_profile_images/aion2global/images?gameServerKey=2401&charKey=4",
+            "region": "la"
+        }
+    ],
+    "pagination": {
+        "page": 1,
+        "size": 40,
+        "total": 2,
+        "endPage": 1
+    }
+}

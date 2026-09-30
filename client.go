@@ -1,12 +1,15 @@
 package aion2
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"iter"
+	"maps"
 	"math"
+	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -83,7 +86,7 @@ func (c *client) Region() Region { return c.config.region }
 func (c *client) Locale() Locale { return c.config.locale }
 
 // Supports reports whether the region has the backend a feature calls. It says nothing about the data behind it:
-// Rankings answers ErrNoSeason on both regions while NC keeps the public boards off
+// Rankings answers ErrNoSeason on every region while NC keeps the public boards off
 func (c *client) Supports(f Feature) bool {
 	switch f {
 	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch, FeatureItems, FeatureRankings:
@@ -101,7 +104,7 @@ func (c *client) Supports(f Feature) bool {
 // Servers returns the list of servers in the client's initialised region
 func (c *client) Servers(ctx context.Context) ([]Server, error) {
 	var raw serversResponse
-	if err := c.get(ctx, serversEndpoint, c.langQuery(), &raw); err != nil {
+	if err := c.get(ctx, serversEndpoint, c.siteQuery(), &raw); err != nil {
 		return nil, err
 	}
 	if raw.ServerList == nil {
@@ -120,7 +123,7 @@ func (c *client) Servers(ctx context.Context) ([]Server, error) {
 // Classes returns the list of classes in the client's initialised region
 func (c *client) Classes(ctx context.Context) ([]Class, error) {
 	var raw classesResponse
-	if err := c.get(ctx, classesEndpoint, c.langQuery(), &raw); err != nil {
+	if err := c.get(ctx, classesEndpoint, c.siteQuery(), &raw); err != nil {
 		return nil, err
 	}
 	if raw.ClassList == nil {
@@ -138,10 +141,19 @@ func (c *client) Classes(ctx context.Context) ([]Class, error) {
 //
 // @TODO: refac
 func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Paged[CharacterSummary], error) {
-	if cs.Keyword == "" || (cs.RaceID != 1 && cs.RaceID != 2) {
-		return nil, c.errorf(searchEndpoint, ErrBadRequest, "CharacterSearch needs Keyword and RaceID 1 or 2")
+	switch {
+	case cs.Keyword == "":
+		return nil, c.errorf(searchEndpoint, ErrBadRequest, "CharacterSearch needs a Keyword")
+	case cs.RaceID < 0 || cs.RaceID > 2:
+		return nil, c.errorf(searchEndpoint, ErrBadRequest, "CharacterSearch.RaceID is 1 or 2, or 0 for both (for global servers)")
+	case cs.RaceID == 0 && c.config.shard == "":
+		return nil, c.errorf(searchEndpoint, ErrBadRequest, "%s searches one race at a time; set RaceID 1 or 2", c.config.region)
 	}
 	q := cs.query()
+	if c.config.shard != "" {
+		q.Set("region", c.config.shard)
+		q.Set("localeInfo", c.config.lang)
+	}
 	if len(cs.ClassIDs) > 0 {
 		ct, err := c.classTable(ctx)
 		if err != nil {
@@ -165,6 +177,9 @@ func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Pag
 	for i, row := range raw.List {
 		if row.CharacterID == "" || row.Name == "" {
 			return nil, c.drift(searchEndpoint, "characterId or name on a row")
+		}
+		if shard := string(row.Region); c.config.shard != "" && shard != "" && shard != c.config.shard {
+			return nil, c.errorf(searchEndpoint, ErrUpstream, "row from shard %q, want %q", shard, c.config.shard)
 		}
 		pcIDs[i] = row.PcID
 	}
@@ -247,11 +262,10 @@ func (c *client) characterQuery(ep endpoint, ref CharacterRef) (url.Values, Char
 	if ref.ServerID <= 0 || ref.CharacterID == "" {
 		return nil, ref, c.errorf(ep, ErrBadRequest, "CharacterRef needs ServerID and CharacterID")
 	}
-	return url.Values{
-		"lang":        {string(c.config.locale)},
-		"serverId":    {strconv.Itoa(ref.ServerID)},
-		"characterId": {ref.CharacterID},
-	}, ref, nil
+	query := c.siteQuery()
+	query.Set("serverId", strconv.Itoa(ref.ServerID))
+	query.Set("characterId", ref.CharacterID)
+	return query, ref, nil
 }
 
 // Equipment returns the equipment of a character on a given server
@@ -371,7 +385,7 @@ func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSumm
 		}
 		query.Set("classes", class.Name) // case-sensitive: GLADIATOR matches nothing
 	}
-	query.Set("locale", dictLocale(c.config.locale))
+	query.Set("locale", fullTag(c.config.locale))
 
 	var raw itemsResponse
 	if err := c.get(ctx, itemsEndpoint, query, &raw); err != nil {
@@ -392,7 +406,7 @@ func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSumm
 		item.Region = c.config.region
 	}
 	if len(raw.Contents) > 0 && named == 0 {
-		return nil, c.drift(itemsEndpoint, "item names; locale "+dictLocale(c.config.locale)+" may be unsupported")
+		return nil, c.drift(itemsEndpoint, "item names; locale "+fullTag(c.config.locale)+" may be unsupported")
 	}
 	return &Paged[ItemSummary]{
 		Items: raw.Contents,
@@ -421,9 +435,13 @@ func (c *client) Item(ctx context.Context, id int) (*Item, error) {
 	if id <= 0 {
 		return nil, c.errorf(itemEndpoint, ErrBadRequest, "Item needs an id")
 	}
-	query := c.langQuery()
-	query.Set("id", strconv.Itoa(id))
-	query.Set("enchantLevel", "0") // required; it scales the main stats
+
+	// items are the same on all of Global
+	query := url.Values{
+		"lang":         {c.config.lang},
+		"id":           {strconv.Itoa(id)},
+		"enchantLevel": {"0"}, // required (?)
+	}
 
 	var body json.RawMessage
 	if err := c.get(ctx, itemEndpoint, query, &body); err != nil {
@@ -511,7 +529,7 @@ func (c *client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, er
 		return nil, c.errorf(rankingsEndpoint, ErrBadRequest, "RankingQuery needs ContentsType and ServerID")
 	}
 	query := q.query()
-	query.Set("lang", string(c.config.locale))
+	maps.Copy(query, c.siteQuery())
 
 	var raw rankingsResponse
 	if err := c.get(ctx, rankingsEndpoint, query, &raw); err != nil {
@@ -1006,7 +1024,7 @@ func (c *client) loadClassTable(ctx context.Context) (*classTable, error) {
 	}
 
 	var raw pcDataResponse
-	if err := c.get(ctx, pcDataEndpoint, c.langQuery(), &raw); err != nil {
+	if err := c.get(ctx, pcDataEndpoint, c.siteQuery(), &raw); err != nil {
 		return nil, err
 	}
 	if raw.PcDataList == nil {
@@ -1027,12 +1045,17 @@ func (c *client) drift(ep endpoint, missing string) *APIError {
 	return c.errorf(ep, ErrUpstream, "response has no %s", missing)
 }
 
-func (c *client) langQuery() url.Values {
-	return url.Values{"lang": {string(c.config.locale)}}
+// siteQuery builds everything required for a call to any region available
+func (c *client) siteQuery() url.Values {
+	query := url.Values{"lang": {c.config.lang}}
+	if c.config.shard != "" {
+		query.Set("region", c.config.shard)
+	}
+	return query
 }
 
 func (c *client) localeQuery() url.Values {
-	return url.Values{"locale": {dictLocale(c.config.locale)}}
+	return url.Values{"locale": {fullTag(c.config.locale)}}
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
@@ -1055,12 +1078,21 @@ func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any
 		}
 		return c.errorf(ep, ErrUpstream, "%w", err)
 	}
-	if sentinel := sentinelFor(resp.Status); sentinel != nil {
-		e := c.apiError(ep, sentinel)
-		e.StatusCode, e.Body, e.RetryAfter = resp.Status, clip(resp.Body), resp.RetryAfter
-		return e
+	sentinel := sentinelFor(resp.Status)
+	if sentinel == nil {
+		return c.decode(ep, resp.Body, out)
 	}
-	return c.decode(ep, resp.Body, out)
+	// NoResourceFoundException is how NC's backend says the path itself does not exist
+	routeGone := resp.Status == http.StatusNotFound && bytes.Contains(resp.Body, []byte(`"NoResourceFoundException"`))
+	if routeGone {
+		sentinel = fmt.Errorf("%w: %s does not serve this route", ErrUpstream, c.config.region)
+	}
+	e := c.apiError(ep, sentinel)
+	e.StatusCode, e.Body, e.RetryAfter = resp.Status, clip(resp.Body), resp.RetryAfter
+	if log := c.config.httpClient.Logger; routeGone && log != nil {
+		log.Warn("aion2: NC does not serve this route", "region", c.config.region, "path", e.Path)
+	}
+	return e
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
@@ -1075,6 +1107,10 @@ func (c *client) apiError(ep endpoint, err error) *APIError {
 // url is the endpoint on this region's deployment of its backend
 func (c *client) url(ep endpoint) string {
 	switch ep.host {
+	case gameDataHost:
+		return c.config.origin + c.config.apiPrefix + c.config.localePath + ep.path
+	case searchHost:
+		return c.config.searchURL + ep.path
 	case dictHost:
 		return c.config.origin + c.config.dictPrefix + ep.path
 	case communityHost:

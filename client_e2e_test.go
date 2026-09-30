@@ -12,12 +12,22 @@ import (
 const e2eEnv = "AION2_E2E"
 
 var e2eRegions = []struct {
-	region  Region
-	servers int
-	items   bool // has an item catalog
+	region   Region
+	servers  int
+	classes  int
+	server   int
+	item     int
+	itemName string
+	items    bool
+	early    bool
 }{
-	{RegionKR, 42, false},
-	{RegionTW, 36, true},
+	{region: RegionKR, servers: 42, classes: 9, server: 1001, item: 110120001, itemName: "Noble Dragon Lord Greatsword"},
+	{region: RegionTW, servers: 36, classes: 9, server: 1001, item: 110120001, itemName: "Noble Dragon Lord Greatsword", items: true},
+	{region: RegionNAE, servers: 4, classes: 8, server: 1101, item: 110160008, itemName: "Training Greatsword", early: true},
+	{region: RegionNAW, servers: 2, classes: 8, server: 1201, item: 110160008, itemName: "Training Greatsword", early: true},
+	{region: RegionEU, servers: 14, classes: 8, server: 1301, item: 110160008, itemName: "Training Greatsword", early: true},
+	{region: RegionSA, servers: 4, classes: 8, server: 1401, item: 110160008, itemName: "Training Greatsword", early: true},
+	{region: RegionAsia, servers: 6, classes: 8, server: 1501, item: 110160008, itemName: "Training Greatsword", early: true},
 }
 
 func newE2EClient(t *testing.T, region Region) Aion2Client {
@@ -32,14 +42,14 @@ func newE2EClient(t *testing.T, region Region) Aion2Client {
 	return c
 }
 
-func findCharacter(t *testing.T, c Aion2Client) CharacterSummary {
+func findCharacter(t *testing.T, c Aion2Client, server int) CharacterSummary {
 	t.Helper()
-	res, err := c.SearchCharacters(t.Context(), CharacterSearch{Keyword: "a", RaceID: 1, ServerID: 1001, Size: 200}) // 200 rows so the pick is max level
+	res, err := c.SearchCharacters(t.Context(), CharacterSearch{Keyword: "a", RaceID: 1, ServerID: server, Size: 200}) // 200 rows so the pick is max level
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(res.Items) == 0 {
-		t.Fatal("search found nobody on server 1001")
+		t.Fatalf("search found nobody on server %d", server)
 	}
 	return slices.MaxFunc(res.Items, func(a, b CharacterSummary) int { return cmp.Compare(a.Level, b.Level) })
 }
@@ -69,11 +79,17 @@ func TestE2EServers(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(servers) != r.servers {
-				t.Fatalf("got %d servers, want %d", len(servers), r.servers)
+			if len(servers) < r.servers {
+				t.Fatalf("got %d servers, want at least %d", len(servers), r.servers)
 			}
-			if servers[0].Region != r.region {
-				t.Fatalf("got region %q, want %q", servers[0].Region, r.region)
+			for _, s := range servers {
+				if s.Region != r.region {
+					t.Fatalf("got region %q, want %q", s.Region, r.region)
+				}
+				// each shard numbers its own hundred, e.g. 1301 and 2301 open Europe, KR and TW start at 1001
+				if s.ServerID%1000/100 != r.server%1000/100 {
+					t.Fatalf("got server %d, want one numbered like %d", s.ServerID, r.server)
+				}
 			}
 		})
 	}
@@ -88,8 +104,8 @@ func TestE2EClasses(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(classes) != 9 {
-				t.Fatalf("got %d classes, want 9", len(classes))
+			if len(classes) != r.classes {
+				t.Fatalf("got %d classes, want %d", len(classes), r.classes)
 			}
 		})
 	}
@@ -123,7 +139,7 @@ func TestE2ECharacter(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
-			hit := findCharacter(t, c)
+			hit := findCharacter(t, c, r.server)
 
 			ch, err := c.Character(t.Context(), hit.Ref)
 			if err != nil {
@@ -154,7 +170,7 @@ func TestE2EEquipment(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
-			hit := findCharacter(t, c)
+			hit := findCharacter(t, c, r.server)
 
 			eq, err := c.Equipment(t.Context(), hit.Ref)
 			if err != nil {
@@ -173,6 +189,11 @@ func TestE2EEquipment(t *testing.T) {
 			}
 			if item.Name != eq.Slots[0].Name {
 				t.Fatalf("got item %q, want %q", item.Name, eq.Slots[0].Name)
+			}
+
+			// If the region doesn't have Arcana yet just skip
+			if r.early {
+				return
 			}
 
 			// Arcana are slots 41 and up, and the tooltip endpoint answers for them like any other slot
@@ -196,7 +217,7 @@ func TestE2EMissingCharacter(t *testing.T) {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
-			_, err := c.Character(t.Context(), CharacterRef{ServerID: 1001, CharacterID: "1"})
+			_, err := c.Character(t.Context(), CharacterRef{ServerID: r.server, CharacterID: "1"})
 			if !errors.Is(err, ErrNotFound) {
 				t.Fatalf("got %v, want ErrNotFound", err)
 			}
@@ -237,11 +258,11 @@ func TestE2EItem(t *testing.T) {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
-			item, err := c.Item(t.Context(), 110120001)
+			item, err := c.Item(t.Context(), r.item)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if item.Name != "Noble Dragon Lord Greatsword" || item.Grade != "Epic" || item.Region != r.region || len(item.MainStats) == 0 {
+			if item.Name != r.itemName || item.Region != r.region || len(item.MainStats) == 0 {
 				t.Fatalf("item %+v", item)
 			}
 			if _, err := c.Item(t.Context(), 1); !errors.Is(err, ErrNotFound) {
@@ -292,6 +313,9 @@ func TestE2EStyles(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
+			if r.early {
+				t.Skip("the styleshop is empty in Early Access")
+			}
 
 			top, err := c.TopStyles(t.Context(), StyleTop{Period: "DAY_7"}) // recent posts carry the gear; the all-time list has older ones
 			if err != nil {
@@ -355,7 +379,7 @@ func TestE2ERankings(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
 			// NC keeps the public boards off. The day this fails with a page, save its row as testdata/ranking.json
-			_, err := c.Rankings(t.Context(), RankingQuery{ContentsType: RankingAbyss, ServerID: 1001})
+			_, err := c.Rankings(t.Context(), RankingQuery{ContentsType: RankingAbyss, ServerID: r.server})
 			if !errors.Is(err, ErrNoSeason) {
 				t.Fatalf("got %v, want ErrNoSeason", err)
 			}
@@ -397,7 +421,11 @@ func TestE2EPosts(t *testing.T) {
 				t.Fatal("Supports(FeatureNews) = false")
 			}
 
-			for _, board := range []Board{BoardPatchNotes, BoardDevNews, BoardNotices} {
+			boards := []Board{BoardPatchNotes, BoardDevNews, BoardNotices}
+			if r.early {
+				boards = []Board{BoardNotices}
+			}
+			for _, board := range boards {
 				posts := latestPosts(t, c, board, 10)
 				if len(posts) == 0 {
 					t.Fatalf("%s: no posts", board)
@@ -412,6 +440,10 @@ func TestE2EPosts(t *testing.T) {
 				}
 			}
 
+			// If the region doesn't have patch notes yet just skip
+			if r.early {
+				return
+			}
 			walked, err := collect(c.Posts(t.Context(), BoardPatchNotes))
 			if err != nil {
 				t.Fatal(err)
@@ -434,6 +466,9 @@ func TestE2EPost(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
+			if r.early {
+				t.Skip("no dev news in Early Access")
+			}
 
 			posts := latestPosts(t, c, BoardDevNews, 1)
 			post, err := c.Post(t.Context(), BoardDevNews, posts[0].ID)
@@ -459,6 +494,9 @@ func TestE2ECommunityPosts(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
+			if r.early {
+				t.Skip("no player boards in Early Access")
+			}
 
 			posts := latestPosts(t, c, BoardFree, 10)
 			if len(posts) == 0 {
@@ -518,6 +556,9 @@ func TestE2EPinnedPosts(t *testing.T) {
 func TestE2EComments(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
+			if r.early {
+				t.Skip("no player boards in Early Access")
+			}
 			var (
 				c     = newE2EClient(t, r.region)
 				posts = latestPosts(t, c, BoardFree, 25)

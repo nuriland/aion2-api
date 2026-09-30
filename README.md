@@ -1,18 +1,34 @@
 # aion2
 
-Unofficial client for the AION 2 website's JSON API. Supports KR and TW. Global coming as soon as the API is available.
+Unofficial client for the AION 2 website's JSON API. Supports KR, TW and Global.
 
 ```go
 import aion2 "github.com/nuriland/aion2-api"
 
 kr, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionKR, Locale: aion2.LocaleEN})
 tw, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionTW})
+eu, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionEU, Locale: aion2.LocaleDE})
 ```
+
+Since Global's launch, KR's site API answers every route with 404 from outside Korea. Those calls return
+`ErrUpstream`, and a `Logger` gets a warning. KR's boards and styleshop still work.
+
+## Global
+
+Global is five shards, each its own region: `RegionNAE`, `RegionNAW`, `RegionEU`, `RegionSA` and `RegionAsia`.
+Locales are `LocaleEN` (the default), `LocaleDE`, `LocaleES`, `LocaleFR`, `LocaleJA` and `LocalePTBR`.
+
+```go
+res, _ := eu.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a"})
+ch, _ := eu.Character(ctx, res.Items[0].Ref)
+```
+
+Global has no item catalog (`Item` by id works), and in Early Access its styleshop and player boards are empty.
 
 ## Servers and classes
 
 ```go
-servers, _ := kr.Servers(ctx) // 42 on KR, 36 on TW
+servers, _ := kr.Servers(ctx) // 42 on KR, 36 on TW, a handful per Global shard
 classes, _ := kr.Classes(ctx)
 ```
 
