@@ -45,6 +45,7 @@ func newE2EClient(t *testing.T, region Region) Aion2Client {
 func findCharacter(t *testing.T, c Aion2Client, server int) CharacterSummary {
 	t.Helper()
 	res, err := c.SearchCharacters(t.Context(), CharacterSearch{Keyword: "a", RaceID: 1, ServerID: server, Size: 200}) // 200 rows so the pick is max level
+	skipGeoFenced(t, c, err)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,6 +53,14 @@ func findCharacter(t *testing.T, c Aion2Client, server int) CharacterSummary {
 		t.Fatalf("search found nobody on server %d", server)
 	}
 	return slices.MaxFunc(res.Items, func(a, b CharacterSummary) int { return cmp.Compare(a.Level, b.Level) })
+}
+
+// skipGeoFenced only skips KR due to server-side limitations from NC
+func skipGeoFenced(t *testing.T, c Aion2Client, err error) {
+	t.Helper()
+	if c.Region() == RegionKR && errors.Is(err, ErrNoRoute) {
+		t.Skip("NC does not serve KR's site from here")
+	}
 }
 
 func latestPosts(t *testing.T, c Aion2Client, board Board, n int) []Post {
@@ -76,6 +85,7 @@ func TestE2EServers(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
 			servers, err := c.Servers(t.Context())
+			skipGeoFenced(t, c, err)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -101,6 +111,7 @@ func TestE2EClasses(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
 			classes, err := c.Classes(t.Context())
+			skipGeoFenced(t, c, err)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -117,6 +128,7 @@ func TestE2ESearchCharacters(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
 			res, err := c.SearchCharacters(t.Context(), CharacterSearch{Keyword: "a", RaceID: 1, Size: 5})
+			skipGeoFenced(t, c, err)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -218,6 +230,7 @@ func TestE2EMissingCharacter(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
 			_, err := c.Character(t.Context(), CharacterRef{ServerID: r.server, CharacterID: "1"})
+			skipGeoFenced(t, c, err)
 			if !errors.Is(err, ErrNotFound) {
 				t.Fatalf("got %v, want ErrNotFound", err)
 			}
@@ -259,6 +272,7 @@ func TestE2EItem(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
 			item, err := c.Item(t.Context(), r.item)
+			skipGeoFenced(t, c, err)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -380,6 +394,7 @@ func TestE2ERankings(t *testing.T) {
 
 			// NC keeps the public boards off. The day this fails with a page, save its row as testdata/ranking.json
 			_, err := c.Rankings(t.Context(), RankingQuery{ContentsType: RankingAbyss, ServerID: r.server})
+			skipGeoFenced(t, c, err)
 			if !errors.Is(err, ErrNoSeason) {
 				t.Fatalf("got %v, want ErrNoSeason", err)
 			}
@@ -517,6 +532,7 @@ func TestE2ECommunityPosts(t *testing.T) {
 			}
 
 			ch, err := c.Character(t.Context(), author.Ref)
+			skipGeoFenced(t, c, err)
 			if err != nil {
 				t.Fatal(err)
 			}

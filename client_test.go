@@ -460,6 +460,7 @@ func TestStatus(t *testing.T) {
 	}{
 		{reply{status: 400, body: `{"code":"BAD_REQUEST"}`}, ErrBadRequest, 1, 0},
 		{reply{status: 404, body: `{"status":404}`}, ErrNotFound, 1, 0},
+		{reply{status: 404, body: `{"status":404,"result":{"exceptionClassName":"NoResourceFoundException"}}`}, ErrNoRoute, 1, 0},
 		{reply{status: 429}, ErrRateLimited, 2, 0},
 		{reply{status: 429, retryAfter: "10"}, ErrRateLimited, 1, 10 * time.Second}, // too long to wait for
 		{reply{status: 503}, ErrUpstream, 2, 0},
@@ -628,9 +629,8 @@ func TestNoRoute(t *testing.T) {
 	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR, Logger: slog.New(slog.NewTextHandler(&logged, nil))},
 		reply{status: 404, body: `{"status":404,"result":{"exceptionClassName":"NoResourceFoundException"}}`})
 
-	_, err := kr.Servers(t.Context())
-	if !errors.Is(err, ErrUpstream) || errors.Is(err, ErrNotFound) {
-		t.Fatalf("got %v, want ErrUpstream: the route is gone, not the thing asked for", err)
+	if _, err := kr.Servers(t.Context()); !errors.Is(err, ErrNoRoute) {
+		t.Fatalf("got %v, want ErrNoRoute", err)
 	}
 	if !strings.Contains(logged.String(), "level=WARN") {
 		t.Fatalf("logged %q, want a warning", logged.String())

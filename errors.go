@@ -1,6 +1,7 @@
 package aion2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ const maxErrorBodyBytes = 512
 
 var (
 	ErrNotFound           = errors.New("aion2: not found")
+	ErrNoRoute            = errors.New("aion2: NC does not serve this route")
 	ErrUpstream           = errors.New("aion2: upstream error")
 	ErrBadRequest         = errors.New("aion2: upstream rejected params")
 	ErrRateLimited        = errors.New("aion2: rate limited")
@@ -49,12 +51,14 @@ func (e *APIError) Error() string {
 
 func (e *APIError) Unwrap() error { return e.Err }
 
-func sentinelFor(status int) error {
+func sentinelFor(status int, body []byte) error {
 	switch {
 	case status >= 200 && status < 300:
 		return nil
 	case status == http.StatusBadRequest:
 		return ErrBadRequest
+	case status == http.StatusNotFound && bytes.Contains(body, []byte(`"NoResourceFoundException"`)): // NoResourceFoundException is how NC's backends say the path itself does not exist
+		return ErrNoRoute
 	case status == http.StatusNotFound:
 		return ErrNotFound
 	case status == http.StatusTooManyRequests:

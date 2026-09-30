@@ -11,7 +11,7 @@ eu, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionEU, Locale: aion2.Locale
 ```
 
 Since Global's launch, KR's site API answers every route with 404 from outside Korea. Those calls return
-`ErrUpstream`, and a `Logger` gets a warning. KR's boards and styleshop still work.
+`ErrNoRoute`, and a `Logger` gets a warning. KR's boards and styleshop still work.
 
 ## Global
 

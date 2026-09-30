@@ -1,7 +1,6 @@
 package aion2
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"iter"
 	"maps"
 	"math"
-	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -1078,21 +1076,15 @@ func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any
 		}
 		return c.errorf(ep, ErrUpstream, "%w", err)
 	}
-	sentinel := sentinelFor(resp.Status)
-	if sentinel == nil {
-		return c.decode(ep, resp.Body, out)
+	if sentinel := sentinelFor(resp.Status, resp.Body); sentinel != nil {
+		e := c.apiError(ep, sentinel)
+		e.StatusCode, e.Body, e.RetryAfter = resp.Status, clip(resp.Body), resp.RetryAfter
+		if log := c.config.httpClient.Logger; sentinel == ErrNoRoute && log != nil {
+			log.Warn("aion2: NC does not serve this route", "region", c.config.region, "path", e.Path)
+		}
+		return e
 	}
-	// NoResourceFoundException is how NC's backend says the path itself does not exist
-	routeGone := resp.Status == http.StatusNotFound && bytes.Contains(resp.Body, []byte(`"NoResourceFoundException"`))
-	if routeGone {
-		sentinel = fmt.Errorf("%w: %s does not serve this route", ErrUpstream, c.config.region)
-	}
-	e := c.apiError(ep, sentinel)
-	e.StatusCode, e.Body, e.RetryAfter = resp.Status, clip(resp.Body), resp.RetryAfter
-	if log := c.config.httpClient.Logger; routeGone && log != nil {
-		log.Warn("aion2: NC does not serve this route", "region", c.config.region, "path", e.Path)
-	}
-	return e
+	return c.decode(ep, resp.Body, out)
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
