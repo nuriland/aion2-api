@@ -245,11 +245,39 @@ func (c *client) Character(ctx context.Context, ref CharacterRef) (*Character, e
 	return &Character{
 		Region:    c.config.region,
 		Profile:   profile,
-		Stats:     raw.Stat.StatList,
+		Stats:     c.localizeStats(raw.Stat.StatList),
 		Titles:    raw.Title,
 		Rankings:  raw.Ranking.RankingList,
 		Daevanion: raw.Daevanion.BoardList,
 	}, nil
+}
+
+// untranslatedItemLevel is the label the global API sends for the ItemLevel stat in every locale
+const untranslatedItemLevel = "아이템레벨"
+
+// itemLevelLabels are our own, since the global API doesn't send translations to take them from
+// @TODO: move elsewhere
+var itemLevelLabels = map[Locale]string{
+	LocaleEN:   "Item Level",
+	LocaleDE:   "Gegenstandsstufe",
+	LocaleES:   "Nivel de objeto",
+	LocaleFR:   "Niveau d'objet",
+	LocaleJA:   "アイテムレベル",
+	LocalePTBR: "Nível do item",
+}
+
+// localizeStats labels the stats NC leaves in Korean in the client's locale
+func (c *client) localizeStats(stats []Stat) []Stat {
+	label, ok := itemLevelLabels[c.config.locale]
+	if !ok {
+		return stats
+	}
+	for i, s := range stats {
+		if s.Type == "ItemLevel" && s.Name == untranslatedItemLevel {
+			stats[i].Name = label
+		}
+	}
+	return stats
 }
 
 // characterQuery is the query every character endpoint shares. It returns the ref with its ID decoded.

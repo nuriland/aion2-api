@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -612,6 +613,62 @@ func TestGlobal(t *testing.T) {
 	eu, _ := newTestClient(t, ConfigOpts{Region: RegionEU}, http.HandlerFunc(serveFixtures))
 	if _, err := eu.SearchCharacters(ctx, CharacterSearch{Keyword: "a"}); !errors.Is(err, ErrUpstream) {
 		t.Fatalf("rows from another shard: got %v, want ErrUpstream", err)
+	}
+}
+
+func TestItemLevelLabel(t *testing.T) {
+	fixture, err := os.ReadFile(filepath.Join("testdata", "info.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Global sends the ItemLevel label in Korean whatever the locale
+	korean := strings.Replace(string(fixture), `"Item Level"`, `"`+untranslatedItemLevel+`"`, 1)
+	if korean == string(fixture) {
+		t.Fatal(`info.json no longer labels ItemLevel "Item Level"`)
+	}
+
+	// label is the ItemLevel stat's name when the character endpoint answers body
+	label := func(opts ConfigOpts, body string) string {
+		t.Helper()
+		serve := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/character/info") {
+				io.WriteString(w, body)
+				return
+			}
+			serveFixtures(w, r)
+		})
+		c, _ := newTestClient(t, opts, serve)
+		ch, err := c.Character(t.Context(), alpha)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range ch.Stats {
+			if s.Type == "ItemLevel" {
+				return s.Name
+			}
+		}
+		t.Fatalf("%s %s: no ItemLevel stat", opts.Region, opts.Locale)
+		return ""
+	}
+
+	for _, l := range globalLocales {
+		want, ok := itemLevelLabels[l]
+		if !ok {
+			t.Errorf("no ItemLevel label for %s", l)
+			continue
+		}
+		if got := label(ConfigOpts{Region: RegionEU, Locale: l}, korean); got != want {
+			t.Errorf("EU %s: ItemLevel named %q, want %q", l, got, want)
+		}
+	}
+
+	// Only the exact Korean label is replaced, and only where there is a label to replace it with
+	if got := label(ConfigOpts{Region: RegionKR, Locale: LocaleEN}, string(fixture)); got != "Item Level" {
+		t.Errorf("KR en: ItemLevel named %q, want it left as NC sent it", got)
+	}
+	if got := label(ConfigOpts{Region: RegionKR, Locale: LocaleKO}, korean); got != untranslatedItemLevel {
+		t.Errorf("KR ko: ItemLevel named %q, want it left in Korean", got)
 	}
 }
 
