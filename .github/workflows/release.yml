@@ -1,0 +1,89 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: # builds without releasing, to try the matrix
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make check
+
+  build:
+    name: build (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: check
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+    # Pure Go, so one Linux runner cross-compiles every target
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        # Go stamps the tag as the version the server reports, unless the checkout is dirty: everything built goes outside it.
+        # An archive keeps the binary executable, which a bare artifact would not.
+        run: |
+          name=aion2-mcp-$GOOS-$GOARCH
+          bin=aion2-mcp
+          if [ "$GOOS" = windows ]; then bin=aion2-mcp.exe; fi
+          out=$RUNNER_TEMP/out dist=$RUNNER_TEMP/dist
+          go build -trimpath -ldflags='-s -w' -o "$out/$bin" ./cmd/aion2-mcp
+          go version -m "$out/$bin" | grep -E '^\s+mod\s'
+          mkdir -p "$dist"
+          if [ "$GOOS" = windows ]; then
+            (cd "$out" && zip "$dist/$name.zip" "$bin")
+          else
+            tar -C "$out" -czf "$dist/$name.tar.gz" "$bin"
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: aion2-mcp-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ runner.temp }}/dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: aion2-mcp-*
+          path: dist
+          merge-multiple: true
+      - name: publish
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum aion2-mcp-* > SHA256SUMS
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" aion2-mcp-* SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber

@@ -1,0 +1,1321 @@
+[
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Find character"
+    },
+    "description": "Look a character up by exact name, optionally on one server, and return its profile, stats and equipment. With no exact match, or several, returns candidates instead",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "the character's exact name, case does not matter",
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "server": {
+          "description": "the server's name, short name or id, as list_servers gives them (empty searches every server)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "find_character"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get character"
+    },
+    "description": "A character's profile, stats, titles, rankings and Daevanion board progress",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "characterId": {
+          "description": "the ref's characterId, or the id from a profile URL",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "serverId": {
+          "description": "the ref's serverId",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "serverId",
+        "characterId"
+      ],
+      "type": "object"
+    },
+    "name": "get_character"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get daevanion"
+    },
+    "description": "One of a character's Daevanion boards: every node, open or not, and the effects the open ones give",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "boardId": {
+          "description": "a daevanion id from get_character",
+          "type": "integer"
+        },
+        "characterId": {
+          "description": "the ref's characterId, or the id from a profile URL",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "serverId": {
+          "description": "the ref's serverId",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "serverId",
+        "characterId",
+        "boardId"
+      ],
+      "type": "object"
+    },
+    "name": "get_daevanion"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get equipment"
+    },
+    "description": "A character's worn gear, skins, pet, wings and skills. A slot opens get_equipped_item",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "characterId": {
+          "description": "the ref's characterId, or the id from a profile URL",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "serverId": {
+          "description": "the ref's serverId",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "serverId",
+        "characterId"
+      ],
+      "type": "object"
+    },
+    "name": "get_equipment"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get equipped item"
+    },
+    "description": "One worn item in full: its stats, random rolls, magic stones and god stones",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "characterId": {
+          "description": "the ref's characterId, or the id from a profile URL",
+          "type": "string"
+        },
+        "enchantLevel": {
+          "description": "the slot's enchantLevel from get_equipment",
+          "type": "integer"
+        },
+        "itemId": {
+          "description": "the slot's id from get_equipment",
+          "type": "integer"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "serverId": {
+          "description": "the ref's serverId",
+          "type": "integer"
+        },
+        "slotPos": {
+          "description": "the slot's slotPos from get_equipment",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "serverId",
+        "characterId",
+        "itemId",
+        "slotPos"
+      ],
+      "type": "object"
+    },
+    "name": "get_equipped_item"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get item"
+    },
+    "description": "An item's definition at +0 (stats, roll ranges, slots, sources). Works in every region",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "the item id",
+          "type": "integer"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "get_item"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get post"
+    },
+    "description": "One post with its body",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "board": {
+          "description": "notice, update (patch notes) and cm_story are NC's. Free, member_recruit, tip and image are the players'",
+          "enum": [
+            "notice",
+            "update",
+            "cm_story",
+            "free",
+            "member_recruit",
+            "tip",
+            "image"
+          ],
+          "type": "string"
+        },
+        "format": {
+          "description": "text (default) strips the body's markup, html keeps its html",
+          "enum": [
+            "text",
+            "html"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "the post id from list_posts",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "board",
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "get_post"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get rankings"
+    },
+    "description": "A server's ranking board, at most 100 rows. NC has the public boards turned off, so expect no seasons until they return",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "description": "a class id from list_classes; empty is every class",
+          "type": "integer"
+        },
+        "contents": {
+          "description": "the content the board ranks",
+          "enum": [
+            "abyss",
+            "arena_cooperation",
+            "arena_solitude",
+            "ascension_trial",
+            "nightmare",
+            "transcendence"
+          ],
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "filter by character name",
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "serverId": {
+          "description": "boards are per server",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "contents",
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "name": "get_rankings"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Get style"
+    },
+    "description": "One style's text, tags and what the character wore, slot by slot",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "the style id from top_styles or search_styles",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "get_style"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List classes"
+    },
+    "description": "The playable classes, with the ids search_characters and search_items filter on",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_classes"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List comments"
+    },
+    "description": "The comments under a post, newest first, each followed by its replies. NC serves them all, limit only trims the reply",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "board": {
+          "description": "notice, update (patch notes) and cm_story are NC's. Free, member_recruit, tip and image are the players'",
+          "enum": [
+            "notice",
+            "update",
+            "cm_story",
+            "free",
+            "member_recruit",
+            "tip",
+            "image"
+          ],
+          "type": "string"
+        },
+        "limit": {
+          "description": "at most this many, newest first (default 20)",
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "postId": {
+          "description": "the post id from list_posts or get_post",
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "board",
+        "postId"
+      ],
+      "type": "object"
+    },
+    "name": "list_comments"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List item categories"
+    },
+    "description": "The category tree search_items takes, with localized names",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_item_categories"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List item grades"
+    },
+    "description": "The grade ids search_items takes, with their localized names",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_item_grades"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List pinned posts"
+    },
+    "description": "The posts NC pinned above a board",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "board": {
+          "description": "notice, update (patch notes) and cm_story are NC's. Free, member_recruit, tip and image are the players'",
+          "enum": [
+            "notice",
+            "update",
+            "cm_story",
+            "free",
+            "member_recruit",
+            "tip",
+            "image"
+          ],
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "board"
+      ],
+      "type": "object"
+    },
+    "name": "list_pinned_posts"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List posts"
+    },
+    "description": "A board's posts, newest first, without their bodies",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "board": {
+          "description": "notice, update (patch notes) and cm_story are NC's. Free, member_recruit, tip and image are the players'",
+          "enum": [
+            "notice",
+            "update",
+            "cm_story",
+            "free",
+            "member_recruit",
+            "tip",
+            "image"
+          ],
+          "type": "string"
+        },
+        "limit": {
+          "description": "at most this many, newest first (default 20)",
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "board"
+      ],
+      "type": "object"
+    },
+    "name": "list_posts"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List regions"
+    },
+    "description": "The regions this server reaches and the features each one has",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "name": "list_regions"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List servers"
+    },
+    "description": "The region's game servers (worlds). raceId 1 is Elyos, 2 is Asmodian",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "list_servers"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "List style comments"
+    },
+    "description": "The comments under a style, newest first. NC serves them all, limit only trims the reply",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "the style id from top_styles or search_styles",
+          "type": "string"
+        },
+        "limit": {
+          "description": "at most this many, newest first (default 20)",
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "list_style_comments"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Search characters"
+    },
+    "description": "Search characters by name. Each hit's ref opens get_character, get_equipment and get_daevanion",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "classIds": {
+          "description": "class ids from list_classes",
+          "items": {
+            "type": "integer"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "keyword": {
+          "description": "part of the character's name",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "description": "from 1",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "raceId": {
+          "description": "1 Elyos, 2 Asmodian, KR and TW need one, Global may leave it out",
+          "type": "integer"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "serverId": {
+          "description": "one server, empty is every server in the region",
+          "type": "integer"
+        },
+        "size": {
+          "description": "default 40, up to 200",
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "keyword"
+      ],
+      "type": "object"
+    },
+    "name": "search_characters"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Search items"
+    },
+    "description": "Search the item catalog. TW only. KR and Global have no catalog, though get_item works everywhere",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "description": "a top-level category id from list_item_categories, e.g. Equip_Weapon",
+          "type": "string"
+        },
+        "classId": {
+          "description": "a class id from list_classes",
+          "type": "integer"
+        },
+        "grade": {
+          "description": "a grade id from list_item_grades (Common, Rare, Legend, Unique or Epic)",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "description": "from 1",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "query": {
+          "description": "part of the item's name",
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "description": "default 30, up to 200",
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "subCategory": {
+          "description": "a child of category, e.g. Greatsword",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_items"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Search styles"
+    },
+    "description": "Search the styleshop's looks",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "description": "match the character's name, an item worn or a tag, empty is title and text",
+          "enum": [
+            "name",
+            "item",
+            "tag"
+          ],
+          "type": "string"
+        },
+        "gender": {
+          "description": "empty is both",
+          "enum": [
+            "MALE",
+            "FEMALE"
+          ],
+          "type": "string"
+        },
+        "keyword": {
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "description": "from 1",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "description": "default 20, up to 100",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "name": "search_styles"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Suggest items"
+    },
+    "description": "The item page's autocomplete, up to 10 item names without ids",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "keyword": {
+          "description": "the start of an item name",
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "keyword"
+      ],
+      "type": "object"
+    },
+    "name": "suggest_items"
+  },
+  {
+    "annotations": {
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Top styles"
+    },
+    "description": "The styleshop's top 50 looks of a period, by downloads or likes",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "gender": {
+          "description": "empty is both",
+          "enum": [
+            "MALE",
+            "FEMALE"
+          ],
+          "type": "string"
+        },
+        "locale": {
+          "description": "the labels' language, empty is the region's own. Global takes en, de, es, fr, ja and pt-BR",
+          "enum": [
+            "ko",
+            "zh-TW",
+            "en",
+            "de",
+            "es",
+            "fr",
+            "ja",
+            "pt-BR"
+          ],
+          "type": "string"
+        },
+        "period": {
+          "description": "default DAY_7",
+          "enum": [
+            "DAY_2",
+            "DAY_7",
+            "DAY_30",
+            "DAY_100",
+            "ALL"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "description": "the region, empty is the server's default",
+          "enum": [
+            "kr",
+            "tw",
+            "nae",
+            "naw",
+            "eu",
+            "sa",
+            "asia"
+          ],
+          "type": "string"
+        },
+        "sortBy": {
+          "description": "default DOWNLOADS",
+          "enum": [
+            "DOWNLOADS",
+            "LIKES"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "top_styles"
+  }
+]

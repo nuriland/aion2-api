@@ -1,16 +1,21 @@
 .DEFAULT_GOAL := help
-.PHONY: help check fmt vet test test-v cover e2e probe
+.PHONY: help check fmt vet lint test test-v cover e2e probe mcp
+
+STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.1
 
 help: ## list targets
-	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-8s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[1m%-8s\033[0m %s\n", $$1, $$2}'
 
-check: fmt vet test ## the gate: gofmt, vet, tests under -race
+check: fmt vet lint test ## the gate: gofmt, vet, staticcheck, tests under -race
 
 fmt: ## fail if anything is not gofmt-clean
 	@out=$$(gofmt -l .); [ -z "$$out" ] || { echo "gofmt needed:"; echo "$$out"; exit 1; }
 
 vet: ## fail if anything is not go vet-clean
 	go vet ./...
+
+lint: ## staticcheck, pinned
+	go run $(STATICCHECK) ./...
 
 test: ## offline tests, race detector on, no cache
 	go test ./... -race -count=1
@@ -28,3 +33,6 @@ e2e: ## ~45 real requests against NC, both regions
 
 probe: ## run the example end to end
 	go run ./examples/probe $(ARGS)
+
+mcp: ## run the MCP server on stdio, e.g. make mcp ARGS="-region eu -v"
+	go run ./cmd/aion2-mcp $(ARGS)

@@ -1,13 +1,13 @@
 # aion2
 
-Unofficial client for the AION 2 website's JSON API. Supports KR, TW and Global.
+Unofficial client for the AION 2 website's JSON API. Comes with MCP support.
 
 ```go
 import aion2 "github.com/nuriland/aion2-api"
 
 kr, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionKR, Locale: aion2.LocaleEN})
-tw, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionTW})
-eu, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionEU, Locale: aion2.LocaleDE})
+tw, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionTW, Locale: aion2.LocaleEN})
+eu, _ := aion2.New(aion2.ConfigOpts{Region: aion2.RegionEU}) // defaults to region's locale
 ```
 
 Since Global's launch, KR's site API answers every route with 404 from outside Korea. Those calls return
@@ -154,3 +154,17 @@ for post, err := range tw.Posts(ctx, aion2.BoardFree) {
 }
 ```
 
+
+## MCP server
+
+`cmd/aion2-mcp` serves the API as MCP tools.
+
+Every release has binaries for Linux, macOS and Windows on the [releases page](https://github.com/nuriland/aion2-api/releases),
+or build one with Go:
+
+```sh
+go install github.com/nuriland/aion2-api/cmd/aion2-mcp@latest
+
+claude mcp add aion2 -- aion2-mcp      # CC
+aion2-mcp -http localhost:8080         # streamable HTTP instead of stdio
+```
