@@ -464,6 +464,7 @@ func TestStatus(t *testing.T) {
 		{reply{status: 404, body: `{"status":404,"result":{"exceptionClassName":"NoResourceFoundException"}}`}, ErrNoRoute, 1, 0},
 		{reply{status: 429}, ErrRateLimited, 2, 0},
 		{reply{status: 429, retryAfter: "10"}, ErrRateLimited, 1, 10 * time.Second}, // too long to wait for
+		{reply{status: 500}, ErrUpstream, 2, 0},
 		{reply{status: 503}, ErrUpstream, 2, 0},
 	} {
 		kr, rec := newTestClient(t, ConfigOpts{Region: RegionKR}, tc.reply)

@@ -85,7 +85,7 @@ func (c *Client) roundTrip(req *http.Request) (Response, error) {
 
 func (r Response) worthRetrying() bool {
 	switch r.Status {
-	case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable:
+	case http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable:
 		return r.RetryAfter <= MaxRetryAfter
 	}
 	return false
