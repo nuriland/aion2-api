@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nuriland/aion2-api/internal/cache"
@@ -191,9 +192,7 @@ func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Pag
 		summary.Region = c.config.region
 		summary.Name = highlight.Replace(summary.Name)
 		summary.ClassID, summary.ClassName = class.ID, class.Text
-		if row.ProfileImageURL != "" {
-			summary.ImageURL = portraitOrigin + row.ProfileImageURL
-		}
+		summary.ImageURL = absolute(portraitOrigin, row.ProfileImageURL)
 		found[i] = summary
 	}
 	return &Paged[CharacterSummary]{
@@ -761,11 +760,11 @@ func (c *client) Style(ctx context.Context, id string) (*Style, error) {
 	}
 	for i := range a.EquippedItems {
 		slot := &a.EquippedItems[i]
-		slot.ItemIconURL, slot.SkinIconURL = iconURL(slot.ItemIconURL), iconURL(slot.SkinIconURL)
+		slot.ItemIconURL, slot.SkinIconURL = absolute(iconOrigin, slot.ItemIconURL), absolute(iconOrigin, slot.SkinIconURL)
 	}
 	for _, item := range []*StyleItem{a.Pet, a.Wing} {
 		if item != nil {
-			item.IconURL = iconURL(item.IconURL)
+			item.IconURL = absolute(iconOrigin, item.IconURL)
 		}
 	}
 	return &Style{
@@ -1013,12 +1012,11 @@ func (c *client) style(ep endpoint, row postRow, counts styleCounts, images imag
 	}, nil
 }
 
-// iconURL is where NC keeps the icon it names
-func iconURL(name string) string {
-	if name == "" {
-		return ""
+func absolute(origin, path string) string {
+	if path == "" || strings.Contains(path, "://") {
+		return path
 	}
-	return iconOrigin + name
+	return origin + path
 }
 
 // classTable falls back to the last table when a refresh fails

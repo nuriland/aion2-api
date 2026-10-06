@@ -725,6 +725,18 @@ func TestClassTableDegrades(t *testing.T) {
 	}
 }
 
+func TestAbsolute(t *testing.T) {
+	for path, want := range map[string]string{
+		"":                               "",
+		"Icon_WingA_007.png":             iconOrigin + "Icon_WingA_007.png",
+		"https://cdn/Icon_WingA_007.png": "https://cdn/Icon_WingA_007.png",
+	} {
+		if got := absolute(iconOrigin, path); got != want {
+			t.Errorf("absolute(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
+
 func TestNewConfig(t *testing.T) {
 	if _, err := NewConfig(ConfigOpts{Region: "global"}); !errors.Is(err, ErrUnsupportedRegion) {
 		t.Fatalf("unknown region: got %v, want ErrUnsupportedRegion", err)
