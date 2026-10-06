@@ -385,6 +385,7 @@ func TestStuckCursor(t *testing.T) {
 		q := r.URL.Query()
 		q.Set("previousArticleId", "0")
 		q.Set("previousCommentId", "0")
+		q.Set("page", "0")
 		http.ServeFile(w, r, filepath.Join("testdata", fixtureFor(r.URL.Path, q)))
 	}))
 	ctx := t.Context()
@@ -394,6 +395,9 @@ func TestStuckCursor(t *testing.T) {
 	}
 	if _, err := kr.Comments(ctx, BoardFree, "x"); !errors.Is(err, ErrUpstream) {
 		t.Fatalf("comments: got %v, want drift under ErrUpstream", err)
+	}
+	if _, err := kr.TopStyles(ctx, StyleTop{}); !errors.Is(err, ErrUpstream) {
+		t.Fatalf("top styles: got %v, want drift under ErrUpstream", err)
 	}
 }
 

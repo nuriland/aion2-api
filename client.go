@@ -695,10 +695,13 @@ func (c *client) TopStyles(ctx context.Context, q StyleTop) ([]StyleSummary, err
 		if err != nil {
 			return nil, err
 		}
-		styles = append(styles, rows...)
 		if !raw.HasMore || len(rows) == 0 {
-			return styles, nil
+			return append(styles, rows...), nil
 		}
+		if page > 0 && rows[0].ID == styles[0].ID {
+			return nil, c.drift(ep, "page past "+strconv.Itoa(page-1))
+		}
+		styles = append(styles, rows...)
 	}
 }
 
@@ -859,7 +862,7 @@ func (c *client) commentPage(ctx context.Context, ep endpoint, postID, cursor st
 		return comments, "", nil
 	}
 	if next == cursor {
-		return nil, "", c.drift(ep, "a cursor that moves")
+		return nil, "", c.drift(ep, "page past "+cursor)
 	}
 	return comments, next, nil
 }
@@ -901,7 +904,7 @@ func (c *client) postPage(ctx context.Context, board Board, cursor string) ([]Po
 		return posts, "", nil
 	}
 	if next == cursor {
-		return nil, "", c.drift(ep, "a cursor that moves")
+		return nil, "", c.drift(ep, "page past "+cursor)
 	}
 	return posts, next, nil
 }
