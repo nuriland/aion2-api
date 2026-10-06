@@ -506,6 +506,7 @@ func TestPreflight(t *testing.T) {
 		"keyword":    {func() error { _, err := tw.SuggestItems(ctx, ""); return err }, ErrBadRequest},
 		"item id":    {func() error { _, err := kr.Item(ctx, 0); return err }, ErrBadRequest},
 		"style id":   {func() error { _, err := kr.Style(ctx, ""); return err }, ErrBadRequest},
+		"style size": {func() error { _, err := kr.SearchStyles(ctx, StyleSearch{Size: 101}); return err }, ErrBadRequest},
 		"reply id":   {func() error { _, err := kr.StyleComments(ctx, ""); return err }, ErrBadRequest},
 		"kr items":   {func() error { _, err := kr.SearchItems(ctx, ItemSearch{}); return err }, ErrFeatureUnavailable},
 		"kr suggest": {func() error { _, err := kr.SuggestItems(ctx, "a"); return err }, ErrFeatureUnavailable},

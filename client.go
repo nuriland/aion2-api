@@ -708,8 +708,11 @@ func (c *client) SearchStyles(ctx context.Context, q StyleSearch) (*Paged[StyleS
 		return nil, err
 	}
 	q.Page = max(q.Page, 1)
-	if q.Size <= 0 {
+	switch {
+	case q.Size <= 0:
 		q.Size = 20
+	case q.Size > 100: // NC answers a page it will not fill with zero rows, not an error
+		return nil, c.errorf(endpoint{feature: FeatureStyles}, ErrBadRequest, "StyleSearch.Size is at most 100")
 	}
 	raw, rows, err := c.stylePage(ctx, c.styleEndpoint("/search/"+c.config.styleshopSite+"/"), q.query())
 	if err != nil {

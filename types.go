@@ -506,7 +506,7 @@ type StyleSearch struct {
 	Field   string // name (the character's), item (something worn) or tag; empty is title and text
 	Gender  string // MALE or FEMALE, I think empty is both but I'm not sure
 	Page    int    // default 1
-	Size    int    // default 20; 100 works
+	Size    int    // default 20 (max 100)
 }
 
 // StyleSummary is one styleshop post as the lists show it: a character's look and its screenshots
