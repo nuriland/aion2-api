@@ -73,7 +73,7 @@ func New(cfgOpts ConfigOpts) (*client, error) {
 func newClient(cfg Config) *client {
 	return &client{
 		config:  cfg,
-		classes: cache.Value[*classTable]{TTL: cacheTTL},
+		classes: cache.Value[*classTable]{TTL: cacheTTL, Retry: cacheRetry},
 	}
 }
 
@@ -1021,8 +1021,17 @@ func iconURL(name string) string {
 	return iconOrigin + name
 }
 
+// classTable falls back to the last table when a refresh fails
 func (c *client) classTable(ctx context.Context) (*classTable, error) {
-	return c.classes.Get(ctx, c.loadClassTable)
+	table, err := c.classes.Get(ctx, c.loadClassTable)
+	if err == nil || ctx.Err() != nil {
+		return table, err
+	}
+	if last, ok := c.classes.Last(); ok {
+		c.warn("class table refresh failed, serving the last one", "err", err)
+		return last, nil
+	}
+	return nil, err
 }
 
 // classLabels is the table for naming results, and never fails: a result already in hand is not
@@ -1032,9 +1041,10 @@ func (c *client) classTable(ctx context.Context) (*classTable, error) {
 func (c *client) classLabels(ctx context.Context, pcIDs ...int) *classTable {
 	table, err := c.classTable(ctx)
 	if err != nil {
+		c.warn("class table unavailable, rows carry ClassID 0", "err", err)
 		return &classTable{}
 	}
-	if table.knows(pcIDs) || !c.classes.Expire(time.Minute) {
+	if table.knows(pcIDs) || !c.classes.Expire() {
 		return table
 	}
 	if fresh, err := c.classTable(ctx); err == nil {
@@ -1107,12 +1117,18 @@ func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any
 	if sentinel := sentinelFor(resp.Status, resp.Body); sentinel != nil {
 		e := c.apiError(ep, sentinel)
 		e.StatusCode, e.Body, e.RetryAfter = resp.Status, clip(resp.Body), resp.RetryAfter
-		if log := c.config.httpClient.Logger; sentinel == ErrNoRoute && log != nil {
-			log.Warn("aion2: NC does not serve this route", "region", c.config.region, "path", e.Path)
+		if sentinel == ErrNoRoute {
+			c.warn("NC does not serve this route", "path", e.Path)
 		}
 		return e
 	}
 	return c.decode(ep, resp.Body, out)
+}
+
+func (c *client) warn(msg string, attrs ...any) {
+	if log := c.config.httpClient.Logger; log != nil {
+		log.Warn("aion2: "+msg, append([]any{"region", c.config.region}, attrs...)...)
+	}
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method

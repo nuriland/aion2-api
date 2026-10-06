@@ -7,24 +7,26 @@ import (
 )
 
 type Value[T any] struct {
-	TTL time.Duration
+	TTL, Retry time.Duration
 
-	mu    sync.Mutex
-	value T
-
-	loadedAt time.Time     // zero until a load succeeds
-	loading  chan struct{} // closed when the load in flight ends
+	mu       sync.Mutex
+	value    T
+	ok       bool
+	nextLoad time.Time
+	triedAt  time.Time
+	loading  chan struct{}
 }
 
 func (v *Value[T]) Get(ctx context.Context, load func(context.Context) (T, error)) (T, error) {
 	for {
 		v.mu.Lock()
-		if !v.loadedAt.IsZero() && v.age() < v.TTL {
+
+		if v.ok && (v.loading != nil || time.Now().Before(v.nextLoad)) {
 			defer v.mu.Unlock()
 			return v.value, nil
 		}
-		inFlight := v.loading
-		if inFlight == nil {
+		loading := v.loading
+		if loading == nil {
 			v.loading = make(chan struct{})
 			v.mu.Unlock()
 			return v.fill(ctx, load)
@@ -32,7 +34,7 @@ func (v *Value[T]) Get(ctx context.Context, load func(context.Context) (T, error
 		v.mu.Unlock()
 
 		select {
-		case <-inFlight: // go round: it is loaded, or it is our turn
+		case <-loading:
 		case <-ctx.Done():
 			var zero T
 			return zero, ctx.Err()
@@ -40,35 +42,41 @@ func (v *Value[T]) Get(ctx context.Context, load func(context.Context) (T, error
 	}
 }
 
-// The release is deferred so a panicking loader cannot strand the waiters.
 func (v *Value[T]) fill(ctx context.Context, load func(context.Context) (T, error)) (value T, err error) {
-	var loaded = false
+	returned := false
 	defer func() {
 		v.mu.Lock()
-		if loaded {
-			v.value, v.loadedAt = value, time.Now()
+		defer v.mu.Unlock()
+
+		now := time.Now()
+		switch {
+		case !returned:
+		case err == nil:
+			v.value, v.ok, v.nextLoad = value, true, now.Add(v.TTL)
+		case v.ok:
+			v.nextLoad = now.Add(v.Retry)
 		}
+		v.triedAt = now
 		close(v.loading)
 		v.loading = nil
-		v.mu.Unlock()
 	}()
-
 	value, err = load(ctx)
-	loaded = err == nil
+	returned = true
 	return value, err
 }
 
-// Expire drops a value older than minAge and reports whether it did. minAge
-// stops a key that will never be known from forcing a reload on every lookup.
-func (v *Value[T]) Expire(minAge time.Duration) bool {
+func (v *Value[T]) Expire() bool {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-
-	if v.loadedAt.IsZero() || v.age() < minAge {
+	if !v.ok || time.Since(v.triedAt) < v.Retry {
 		return false
 	}
-	v.loadedAt = time.Time{}
+	v.nextLoad = time.Now()
 	return true
 }
 
-func (v *Value[T]) age() time.Duration { return time.Since(v.loadedAt) }
+func (v *Value[T]) Last() (T, bool) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.value, v.ok
+}

@@ -673,6 +673,58 @@ func TestItemLevelLabel(t *testing.T) {
 	}
 }
 
+func TestClassTableDegrades(t *testing.T) {
+	var (
+		logged bytes.Buffer
+		down   bool
+	)
+
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR, Logger: slog.New(slog.NewTextHandler(&logged, nil))}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case down && strings.HasSuffix(r.URL.Path, "/gameinfo/pcdata"):
+			w.WriteHeader(500)
+		case r.URL.Query().Get("keyword") == "patched":
+			io.WriteString(w, `{"list":[{"characterId":"x","name":"X","pcId":99,"serverId":1001},{"characterId":"y","name":"Y","pcId":29,"serverId":1001}],"pagination":{"page":1,"size":40,"total":2,"endPage":1}}`)
+		default:
+			serveFixtures(w, r)
+		}
+	}))
+
+	kr.classes.Retry = 0
+	ctx := t.Context()
+	warned := func(what string) {
+		t.Helper()
+		if !strings.Contains(logged.String(), "level=WARN") || !strings.Contains(logged.String(), what) {
+			t.Fatalf("logged %q, want a warning about %q", logged.String(), what)
+		}
+		logged.Reset()
+	}
+
+	down = true
+	found, err := kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a", RaceID: 1})
+	if err != nil || found.Items[0].ClassID != 0 {
+		t.Fatalf("search without a table: %v, %+v", err, found.Items[0])
+	}
+	warned("ClassID 0")
+	if _, err := kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a", RaceID: 1, ClassIDs: []int{2}}); !errors.Is(err, ErrUpstream) {
+		t.Fatalf("class filter without a table: got %v, want ErrUpstream", err)
+	}
+
+	down = false
+	if found, err = kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a", RaceID: 1}); err != nil || found.Items[0].ClassID != 8 {
+		t.Fatalf("search with the table back: %v, %+v", err, found.Items[0])
+	}
+
+	down = true
+	if found, err = kr.SearchCharacters(ctx, CharacterSearch{Keyword: "patched", RaceID: 1}); err != nil || found.Items[0].ClassID != 0 || found.Items[1].ClassID != 8 {
+		t.Fatalf("search on a stale table: %v, %+v", err, found.Items)
+	}
+	warned("last one")
+	if _, err := kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a", RaceID: 1, ClassIDs: []int{2}}); err != nil {
+		t.Fatalf("class filter on a stale table: %v", err)
+	}
+}
+
 func TestNewConfig(t *testing.T) {
 	if _, err := NewConfig(ConfigOpts{Region: "global"}); !errors.Is(err, ErrUnsupportedRegion) {
 		t.Fatalf("unknown region: got %v, want ErrUnsupportedRegion", err)

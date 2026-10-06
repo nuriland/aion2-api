@@ -15,6 +15,7 @@ const (
 	defaultRateLimit = 5                // Requests per second, evenly spaced
 	defaultTimeout   = 15 * time.Second // Default timeout for HTTP requests
 	cacheTTL         = 24 * time.Hour   // How stale the class table may get
+	cacheRetry       = time.Minute      // How long a failed refresh, or an unknown pcId, keeps the old table before asking again
 
 	portraitOrigin   = "https://profileimg.plaync.com"                                 // character portraits, every region
 	styleshopAPI     = "https://aion2-shop.plaync.com/styleshop"                       // the styleshop, every region
