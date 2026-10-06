@@ -110,7 +110,8 @@ type CharacterRanking struct {
 	RankingType  int     `json:"rankingType"`
 	Rank         int     `json:"rank"`
 	PrevRank     int     `json:"prevRank"`
-	RankChange   int     `json:"rankChange"`
+	RankChange   int     `json:"rankChange"` // positive means climbed
+	IsNew        bool    `json:"isNew"`      // first appearance on the board, RankChange will be 0
 	Point        float64 `json:"point"`
 	GradeName    string  `json:"gradeName"`
 	GradeIconURL string  `json:"gradeIcon"`

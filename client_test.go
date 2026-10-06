@@ -181,6 +181,9 @@ func TestDecode(t *testing.T) {
 	if len(ch.Stats) != 2 || len(ch.Daevanion) != 1 || ch.Daevanion[0].ID != 71 {
 		t.Fatalf("character %+v", ch)
 	}
+	if r := ch.Rankings; len(r) != 2 || !r[0].IsNew || r[0].RankChange != 0 || r[1].IsNew || r[1].RankChange != 1 {
+		t.Fatalf("rankings %+v", r)
+	}
 	if _, err := kr.Character(ctx, nobody); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing character: got %v, want ErrNotFound", err)
 	}

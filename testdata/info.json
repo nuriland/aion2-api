@@ -62,7 +62,30 @@
         ]
     },
     "ranking": {
-        "rankingList": null
+        "rankingList": [
+            {
+                "rankingContentsType": 1,
+                "rankingContentsName": "Abyss",
+                "rankingType": 0,
+                "rank": 7,
+                "prevRank": 0,
+                "rankChange": 2147483647,
+                "point": 1234.5,
+                "gradeName": "Legend",
+                "gradeIcon": "https://assets.playnccdn.com/static-aion2/ranking/img/grade_legend.png"
+            },
+            {
+                "rankingContentsType": 5,
+                "rankingContentsName": "Arena of Solitude",
+                "rankingType": 0,
+                "rank": 3,
+                "prevRank": 4,
+                "rankChange": 1,
+                "point": 1500,
+                "gradeName": "Unique",
+                "gradeIcon": ""
+            }
+        ]
     },
     "daevanion": {
         "boardList": [

@@ -241,6 +241,11 @@ func (c *client) Character(ctx context.Context, ref CharacterRef) (*Character, e
 	profile.Ref = ref
 	profile.ClassID = c.classLabels(ctx, raw.Profile.PcID).byPcID[raw.Profile.PcID].ID
 
+	for i := range raw.Ranking.RankingList {
+		r := &raw.Ranking.RankingList[i]
+		r.RankChange, r.IsNew = rankMove(r.RankChange)
+	}
+
 	return &Character{
 		Region:    c.config.region,
 		Profile:   profile,
@@ -579,9 +584,7 @@ func (c *client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, er
 		entry := row.RankingEntry
 		entry.Ref = CharacterRef{ServerID: q.ServerID, CharacterID: decodeCharacterID(row.CharacterID)}
 		entry.Raw = body
-		if row.RankChange == math.MaxInt32 { // NC's marker for a first appearance on the board
-			entry.IsNew, entry.RankChange = true, 0
-		}
+		entry.RankChange, entry.IsNew = rankMove(row.RankChange)
 		entries[i] = entry
 	}
 	return &RankingPage{Region: c.config.region, Season: raw.Season, Entries: entries}, nil
@@ -1017,6 +1020,14 @@ func absolute(origin, path string) string {
 		return path
 	}
 	return origin + path
+}
+
+// rankMove reads NC's rank change, where MaxInt32 marks a first appearance on the board
+func rankMove(change int) (int, bool) {
+	if change == math.MaxInt32 {
+		return 0, true
+	}
+	return change, false
 }
 
 // classTable falls back to the last table when a refresh fails
