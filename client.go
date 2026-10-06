@@ -375,6 +375,9 @@ func (c *client) Daevanion(ctx context.Context, ref CharacterRef, boardID int) (
 	if err != nil {
 		return nil, err
 	}
+	if boardID <= 0 {
+		return nil, c.errorf(daevanionEndpoint, ErrBadRequest, "Daevanion needs a board id")
+	}
 
 	query.Set("boardId", strconv.Itoa(boardID))
 

@@ -499,6 +499,8 @@ func TestPreflight(t *testing.T) {
 		"kr races":   {func() error { _, err := kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a"}); return err }, ErrBadRequest},
 		"ref":        {func() error { _, err := kr.Character(ctx, CharacterRef{}); return err }, ErrBadRequest},
 		"slot":       {func() error { _, err := kr.EquippedItem(ctx, alpha, EquipSlot{}); return err }, ErrBadRequest},
+		"board":      {func() error { _, err := kr.Daevanion(ctx, alpha, 0); return err }, ErrBadRequest},
+		"comment id": {func() error { _, err := kr.Comments(ctx, BoardFree, ""); return err }, ErrBadRequest},
 		"rankings":   {func() error { _, err := kr.Rankings(ctx, RankingQuery{}); return err }, ErrBadRequest},
 		"post id":    {func() error { _, err := kr.Post(ctx, BoardNotices, ""); return err }, ErrBadRequest},
 		"keyword":    {func() error { _, err := tw.SuggestItems(ctx, ""); return err }, ErrBadRequest},
