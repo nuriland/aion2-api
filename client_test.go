@@ -659,7 +659,7 @@ func TestItemLevelLabel(t *testing.T) {
 		return ""
 	}
 
-	for _, l := range globalLocales {
+	for _, l := range regions[RegionEU].locales {
 		want, ok := itemLevelLabels[l]
 		if !ok {
 			t.Errorf("no ItemLevel label for %s", l)
@@ -747,8 +747,15 @@ func TestNewConfig(t *testing.T) {
 	if _, err := NewConfig(ConfigOpts{Region: "global"}); !errors.Is(err, ErrUnsupportedRegion) {
 		t.Fatalf("unknown region: got %v, want ErrUnsupportedRegion", err)
 	}
-	if _, err := NewConfig(ConfigOpts{Region: RegionEU, Locale: LocaleKO}); err == nil {
-		t.Fatal("Korean on Global: got no error")
+	for region, locale := range map[Region]Locale{RegionEU: LocaleKO, RegionKR: LocaleDE, RegionTW: LocaleJA} {
+		if _, err := NewConfig(ConfigOpts{Region: region, Locale: locale}); !errors.Is(err, ErrUnsupportedLocale) {
+			t.Fatalf("%s on %s: got %v, want ErrUnsupportedLocale", locale, region, err)
+		}
+	}
+	for region, locale := range map[Region]Locale{RegionKR: LocaleEN, RegionTW: LocaleKO, RegionSA: LocalePTBR} {
+		if _, err := NewConfig(ConfigOpts{Region: region, Locale: locale}); err != nil {
+			t.Fatalf("%s on %s: %v", locale, region, err)
+		}
 	}
 }
 

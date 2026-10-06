@@ -17,6 +17,7 @@ Since Global's launch, KR's site API answers every route with 404 from outside K
 
 Global is five shards, each its own region: `RegionNAE`, `RegionNAW`, `RegionEU`, `RegionSA` and `RegionAsia`.
 Locales are `LocaleEN` (the default), `LocaleDE`, `LocaleES`, `LocaleFR`, `LocaleJA` and `LocalePTBR`.
+KR takes `LocaleKO` and `LocaleEN`, TW those two and `LocaleZHTW`. Anything else is `ErrUnsupportedLocale` due to NC's API not supporting them.
 
 ```go
 res, _ := eu.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a"})

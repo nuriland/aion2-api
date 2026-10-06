@@ -20,6 +20,7 @@ var (
 	ErrRateLimited        = errors.New("aion2: rate limited")
 	ErrNoSeason           = errors.New("aion2: no ranking season")
 	ErrUnsupportedRegion  = errors.New("aion2: unsupported region")
+	ErrUnsupportedLocale  = errors.New("aion2: unsupported locale")
 	ErrFeatureUnavailable = errors.New("aion2: feature unavailable on this region")
 )
 
