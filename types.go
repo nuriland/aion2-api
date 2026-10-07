@@ -72,7 +72,7 @@ type CharacterProfile struct {
 	ClassName   string       `json:"className"`  // localized, from the profile itself; set even when ClassID is 0
 	Gender      string       `json:"genderName"` // localized
 	RaceID      int          `json:"raceId"`
-	ServerName  string       `json:"serverName"`
+	ServerName  string       `json:"serverName"` // in the site's own language, whatever the set Locale is
 	GuildName   string       `json:"regionName"` // NC files the guild under regionName; its own schema calls it 길드 명. No guild id is sent
 	CombatPower int          `json:"combatPower"`
 	TitleName   string       `json:"titleName"`
@@ -143,9 +143,9 @@ type CharacterSummary struct {
 	Ref        CharacterRef `json:"ref"`
 	Region     Region       `json:"region"`
 	Name       string       `json:"name"`
-	ServerName string       `json:"serverName"`
-	ClassID    int          `json:"classId"`   // 0 if NC's class table was unreachable or does not list the class
-	ClassName  string       `json:"className"` // localized; empty whenever ClassID is 0
+	ServerName string       `json:"serverName"` // in the site's own language, whatever the Locale is
+	ClassID    int          `json:"classId"`    // 0 if NC's class table was unreachable or does not list the class
+	ClassName  string       `json:"className"`  // localized Class ID
 	RaceID     int          `json:"race"`
 	Level      int          `json:"level"`
 	ImageURL   string       `json:"imageUrl"` // the portrait; not every character has one
