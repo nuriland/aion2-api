@@ -327,9 +327,6 @@ func TestE2EStyles(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
-			if r.early {
-				t.Skip("the styleshop is empty in Early Access")
-			}
 
 			top, err := c.TopStyles(t.Context(), StyleTop{Period: "DAY_7"}) // recent posts carry the gear; the all-time list has older ones
 			if err != nil {

@@ -24,7 +24,7 @@ res, _ := eu.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a"})
 ch, _ := eu.Character(ctx, res.Items[0].Ref)
 ```
 
-Global has no item catalog (`Item` by id works), and in Early Access its styleshop and player boards are empty.
+Global has no item catalog (`Item` by id works) and, so far, no player boards.
 
 ## Servers and classes
 
