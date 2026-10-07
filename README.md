@@ -1,6 +1,6 @@
 # aion2
 
-Unofficial client for the AION 2 website's JSON API. Comes with MCP support.
+Unofficial client for the AION 2 website's JSON API. Supports KR, TW and Global.
 
 ```go
 import aion2 "github.com/nuriland/aion2-api"
@@ -161,14 +161,4 @@ for post, err := range tw.Posts(ctx, aion2.BoardFree) {
 
 ## MCP server
 
-`cmd/aion2-mcp` serves the API as MCP tools.
-
-Every release has binaries for Linux, macOS and Windows on the [releases page](https://github.com/nuriland/aion2-api/releases),
-or build one with Go:
-
-```sh
-go install github.com/nuriland/aion2-api/cmd/aion2-mcp@latest
-
-claude mcp add aion2 -- aion2-mcp      # CC
-aion2-mcp -http localhost:8080         # streamable HTTP instead of stdio
-```
+[aion2-mcp](https://github.com/nuriland/aion2-mcp) serves this API as MCP tools.
