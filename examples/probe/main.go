@@ -21,82 +21,76 @@ func main() {
 	if *verbose {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
-	tw, err := aion2.New(aion2.ConfigOpts{Region: aion2.RegionTW, Locale: aion2.LocaleZHTW, Logger: logger})
-	if err != nil {
-		log.Fatal(err)
-	}
-	kr, err := aion2.New(aion2.ConfigOpts{Region: aion2.RegionKR, Locale: aion2.LocaleEN, Logger: logger})
-	if err != nil {
-		log.Fatal(err)
+	regions := []aion2.Region{aion2.RegionKR, aion2.RegionTW, aion2.RegionEU}
+	if flag.NArg() > 0 {
+		regions = regions[:0]
+		for _, arg := range flag.Args() {
+			regions = append(regions, aion2.Region(arg))
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	twServers, err := tw.Servers(ctx)
-	if err != nil {
-		log.Fatal(err)
+	for _, region := range regions {
+		c, err := aion2.New(aion2.ConfigOpts{Region: region, Locale: aion2.LocaleEN, Logger: logger})
+		check(err)
+		site(ctx, c)
+		community(ctx, c)
 	}
-	krServers, err := kr.Servers(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// Both lists start at ServerID 1001. They are different worlds.
-	fmt.Printf("TW %d servers (%d = %s), KR %d servers (%d = %s)\n",
-		len(twServers), twServers[0].ServerID, twServers[0].Name,
-		len(krServers), krServers[0].ServerID, krServers[0].Name)
+}
 
-	page, err := tw.SearchItems(ctx, aion2.ItemSearch{Size: 3})
-	if err != nil {
-		log.Fatal(err)
+func site(ctx context.Context, c aion2.Aion2Client) {
+	servers, err := c.Servers(ctx)
+	if errors.Is(err, aion2.ErrNoRoute) { // KR's site answers nothing outside Korea; its boards and styleshop still do
+		fmt.Printf("%s: site not served from here\n", c.Region())
+		return
 	}
-	for _, it := range page.Items {
-		fmt.Printf("%d %s %s\n", it.ID, it.Name, it.ImageURL)
-	}
-	if _, err := kr.SearchItems(ctx, aion2.ItemSearch{Size: 3}); !errors.Is(err, aion2.ErrFeatureUnavailable) {
-		log.Fatalf("expected unavailable, got %v", err)
-	}
-	fmt.Println("KR item search: unavailable, as expected; KR has no dictionary, only Item by id")
+	check(err)
+	fmt.Printf("%s: %d servers, %d = %s\n", c.Region(), len(servers), servers[0].ServerID, servers[0].Name)
 
-	for _, c := range []aion2.Aion2Client{kr, tw} {
-		res, err := c.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a", ServerID: 1001, RaceID: 1, Page: 1, Size: 20})
-		if err != nil {
-			log.Fatal(err)
-		}
-		if len(res.Items) == 0 {
-			log.Fatalf("%s: search found nobody", c.Region())
-		}
-		ref := res.Items[0].Ref
-		ch, err := c.Character(ctx, ref)
-		if err != nil {
-			log.Fatal(err)
-		}
-		eq, err := c.Equipment(ctx, ref)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("%s: %d found; %s lv%d %s, combat power %d, %d slots\n",
-			c.Region(), res.Page.Total, ch.Profile.Name, ch.Profile.Level, ch.Profile.ClassName, ch.Profile.CombatPower, len(eq.Slots))
+	res, err := c.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a", RaceID: 1, ServerID: servers[0].ServerID, Size: 20})
+	check(err)
+	if len(res.Items) == 0 {
+		log.Fatalf("%s: search found nobody", c.Region())
 	}
+	ref := res.Items[0].Ref
+	ch, err := c.Character(ctx, ref)
+	check(err)
+	eq, err := c.Equipment(ctx, ref)
+	check(err)
+	fmt.Printf("%s: %d found; %s lv%d %s, combat power %d, %d slots\n", c.Region(), res.Page.Total, ch.Profile.Name, ch.Profile.Level, ch.Profile.ClassName, ch.Profile.CombatPower, len(eq.Slots))
 
-	for note, err := range kr.Posts(ctx, aion2.BoardPatchNotes) {
-		if err != nil {
-			log.Fatal(err)
+	if len(eq.Slots) > 0 {
+		it, err := c.Item(ctx, eq.Slots[0].ItemID)
+		check(err)
+		fmt.Printf("%s: item %d %s (%s), %d main stats\n", c.Region(), it.ID, it.Name, it.GradeName, len(it.MainStats))
+	}
+	if c.Supports(aion2.FeatureItemSearch) {
+		page, err := c.SearchItems(ctx, aion2.ItemSearch{Size: 3})
+		check(err)
+		for _, it := range page.Items {
+			fmt.Printf("%s: catalog %d %s %s\n", c.Region(), it.ID, it.Name, it.ImageURL)
 		}
-		fmt.Printf("latest KR patch notes: %s (%s)\n", note.Title, note.PostedAt.Format("2006-01-02"))
+	}
+}
+
+func community(ctx context.Context, c aion2.Aion2Client) {
+	for note, err := range c.Posts(ctx, aion2.BoardPatchNotes) {
+		check(err)
+		fmt.Printf("%s: latest patch notes %q (%s)\n", c.Region(), note.Title, note.PostedAt.Format("2006-01-02"))
 		break
 	}
+	top, err := c.TopStyles(ctx, aion2.StyleTop{Period: "DAY_7"})
+	check(err)
+	if len(top) == 0 {
+		fmt.Printf("%s: no styles this week\n", c.Region())
+		return
+	}
+	fmt.Printf("%s: %d styles this week, top %q by %s, %d downloads\n", c.Region(), len(top), top[0].Title, top[0].Author.Name, top[0].Downloads)
+}
 
-	for _, c := range []aion2.Aion2Client{kr, tw} {
-		it, err := c.Item(ctx, 110120001)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("%s item %d: %s (%s), %s %s\n", c.Region(), it.ID, it.Name, it.GradeName, it.MainStats[0].Name, it.MainStats[0].Value)
-
-		top, err := c.TopStyles(ctx, aion2.StyleTop{Period: "DAY_7"})
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("%s styles: %d this week, top %q by %s, %d downloads\n", c.Region(), len(top), top[0].Title, top[0].Author.Name, top[0].Downloads)
+func check(err error) {
+	if err != nil {
+		log.Fatal(err)
 	}
 }
