@@ -149,6 +149,9 @@ for post, err := range tw.Posts(ctx, aion2.BoardFree) {
     if err != nil {
         return err
     }
+    if post.Author == nil { // if a post is made by NC staff the author is empty
+        continue
+    }
     ch, _ := tw.Character(ctx, post.Author.Ref)
     comments, _ := tw.Comments(ctx, aion2.BoardFree, post.ID)
     break
