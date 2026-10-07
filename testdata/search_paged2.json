@@ -1,0 +1,21 @@
+{
+    "list": [
+        {
+            "characterId": "AAAAtestAAAA_-0000000000000000000000000003%3D",
+            "name": "G<strong>a</strong>mma",
+            "race": 1,
+            "pcId": 29,
+            "level": 30,
+            "serverId": 1001,
+            "serverName": "시엘",
+            "profileImageUrl": "",
+            "region": null
+        }
+    ],
+    "pagination": {
+        "page": 2,
+        "size": 200,
+        "total": 3,
+        "endPage": 2
+    }
+}

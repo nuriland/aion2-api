@@ -4,8 +4,8 @@ import "iter"
 
 // Paged is one page of a listing
 type Paged[T any] struct {
-	Page  PageInfo
-	Items []T
+	Page  PageInfo `json:"page"`
+	Items []T      `json:"items"`
 }
 
 // PageInfo is upstream's own pagination, and Total is not a count to rely on.
@@ -14,10 +14,10 @@ type Paged[T any] struct {
 //
 // Character search stops counting at 10,000 altogether. Loop on LastPage.
 type PageInfo struct {
-	Page     int
-	Size     int
-	Total    int
-	LastPage int
+	Page     int `json:"page"`
+	Size     int `json:"size"`
+	Total    int `json:"total"`
+	LastPage int `json:"lastPage"`
 }
 
 // pages walks page 1 to LastPage one request at a time, re-reading LastPage from every page so a cap NC moves is followed.

@@ -436,9 +436,9 @@ func (l *Lines) UnmarshalJSON(data []byte) error {
 		*l = plain
 		return nil
 	}
-	*l = nil
-	for _, row := range rows {
-		*l = append(*l, row.Desc)
+	*l = make(Lines, len(rows))
+	for i, row := range rows {
+		(*l)[i] = row.Desc
 	}
 	return nil
 }

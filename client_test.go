@@ -82,6 +82,8 @@ func fixtureFor(p string, q url.Values) string {
 		return "pcdata.json"
 	case strings.HasSuffix(p, "/search/character") && q.Has("region"):
 		return "search_global.json"
+	case strings.HasSuffix(p, "/search/character") && q.Get("keyword") == "paged":
+		return "search_paged" + q.Get("page") + ".json"
 	case strings.HasSuffix(p, "/search/character"):
 		return "search.json"
 	case strings.HasSuffix(p, "/character/info") && nobody:
@@ -377,6 +379,49 @@ func TestPages(t *testing.T) {
 	}
 	if len(posts) != 3 || rec.hits.Load() != 2 {
 		t.Fatalf("posts walk: %d posts in %d requests, want 3 in 2", len(posts), rec.hits.Load())
+	}
+
+	rec.hits.Store(0)
+	var names []string
+	for hit, err := range kr.Characters(ctx, CharacterSearch{Keyword: "paged", RaceID: 1}) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		names = append(names, hit.Name)
+	}
+	if want := []string{"Alpha", "Beta", "Gamma"}; !slices.Equal(names, want) || rec.hits.Load() != 4 { // the class table, then two pages
+		t.Fatalf("characters walk: %v in %d requests, want %v in 4", names, rec.hits.Load(), want)
+	}
+}
+
+func TestClassFilter(t *testing.T) {
+	var last url.Values
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		last = r.URL.Query()
+		serveFixtures(w, r)
+	})
+	kr, _ := newTestClient(t, ConfigOpts{Region: RegionKR}, handler)
+	tw, _ := newTestClient(t, ConfigOpts{Region: RegionTW}, handler)
+	ctx := t.Context()
+
+	if _, err := kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a", RaceID: 1, ClassIDs: []int{2, 8}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := last.Get("pcId"); got != "5,6,7,8,29" {
+		t.Fatalf("pcId %q, want every Gladiator and Cleric combination", got)
+	}
+	if _, err := kr.SearchCharacters(ctx, CharacterSearch{Keyword: "a", RaceID: 1, ClassIDs: []int{99}}); !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("unknown class: got %v, want ErrBadRequest", err)
+	}
+
+	if _, err := tw.SearchItems(ctx, ItemSearch{ClassID: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if got := last.Get("classes"); got != "Gladiator" {
+		t.Fatalf("classes %q, want the slug as the class list spells it", got)
+	}
+	if _, err := tw.SearchItems(ctx, ItemSearch{ClassID: 99}); !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("unknown class: got %v, want ErrBadRequest", err)
 	}
 }
 
