@@ -23,12 +23,12 @@ test: ## offline tests, race detector on, no cache
 test-v: ## same as test, but verbose
 	go test ./... -race -count=1 -v
 
-cover: ## coverage summary, per function
-	go test . ./internal/... -count=1 -coverprofile=cover.out
+cover: ## coverage summary
+	go test . ./internal/... -count=1 -coverpkg=.,./internal/... -coverprofile=cover.out
 	@go tool cover -func=cover.out | tail -1
 	@echo "  open it: go tool cover -html=cover.out"
 
-e2e: ## ~45 real requests against NC, both regions
+e2e: ## real requests against NC, every region
 	AION2_E2E=1 go test . -run E2E -count=1 -v -timeout 5m
 
 probe: ## run the example end to end
