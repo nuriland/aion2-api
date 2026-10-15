@@ -335,6 +335,7 @@ func TestE2EItems(t *testing.T) {
 }
 
 func TestE2EStyles(t *testing.T) {
+	tops := map[string]Region{}
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
@@ -350,6 +351,10 @@ func TestE2EStyles(t *testing.T) {
 			if first.Region != r.region || first.Author.Ref.CharacterID == "" || len(first.Images) == 0 || first.Downloads == 0 {
 				t.Fatalf("look %+v", first)
 			}
+			if other, seen := tops[first.ID]; seen && r.early {
+				t.Fatalf("top look %s is %s's too", first.ID, other)
+			}
+			tops[first.ID] = r.region
 
 			var style *Style
 			for _, look := range top[:min(5, len(top))] {
@@ -387,6 +392,28 @@ func TestE2EStyles(t *testing.T) {
 			}
 			if male.Page.Total == 0 || male.Page.Total >= page.Page.Total {
 				t.Fatalf("got %d male looks of %d, want fewer", male.Page.Total, page.Page.Total)
+			}
+
+			tags, err := c.StyleTags(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tag := tags[0]; tag.Type != "USER_TAG" || tag.Name == "" || !slices.ContainsFunc(tags, func(g StyleTag) bool { return g.Code == "GLADIATOR" }) {
+				t.Fatalf("tags %+v", tags)
+			}
+			gladiators, err := c.SearchStyles(t.Context(), StyleSearch{Size: 1, Class: "GLADIATOR"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if gladiators.Page.Total == 0 || gladiators.Page.Total >= page.Page.Total {
+				t.Fatalf("got %d gladiator looks of %d, want fewer", gladiators.Page.Total, page.Page.Total)
+			}
+			tagged, err := c.SearchStyles(t.Context(), StyleSearch{Size: 1, Tags: []string{tags[0].Code}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tagged.Page.Total == 0 || tagged.Page.Total >= page.Page.Total {
+				t.Fatalf("got %d %s looks of %d, want fewer", tagged.Page.Total, tags[0].Code, page.Page.Total)
 			}
 			if _, err := c.Style(t.Context(), "nope"); !errors.Is(err, ErrNotFound) {
 				t.Fatalf("unknown id: got %v, want ErrNotFound", err)

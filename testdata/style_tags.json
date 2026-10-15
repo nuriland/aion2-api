@@ -1,0 +1,48 @@
+{
+  "USER_TAG": [
+    {
+      "id": 12,
+      "type": "USER_TAG",
+      "codeName": "LOVELY",
+      "displayName": "Lovely"
+    },
+    {
+      "id": 13,
+      "type": "USER_TAG",
+      "codeName": "SEXY",
+      "displayName": "Sexy"
+    }
+  ],
+  "GENDER": [
+    {
+      "id": 1,
+      "type": "GENDER",
+      "codeName": "MALE",
+      "displayName": "Male",
+      "codeValue": 1
+    },
+    {
+      "id": 2,
+      "type": "GENDER",
+      "codeName": "FEMALE",
+      "displayName": "Female",
+      "codeValue": 2
+    }
+  ],
+  "CLASS": [
+    {
+      "id": 4,
+      "type": "CLASS",
+      "codeName": "GLADIATOR",
+      "displayName": "Gladiator",
+      "codeValue": 2
+    },
+    {
+      "id": 5,
+      "type": "CLASS",
+      "codeName": "TEMPLAR",
+      "displayName": "Templar",
+      "codeValue": 3
+    }
+  ]
+}

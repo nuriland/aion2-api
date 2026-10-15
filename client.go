@@ -53,6 +53,7 @@ type Aion2Client interface {
 	Styles(context.Context, StyleSearch) iter.Seq2[StyleSummary, error]
 	Style(context.Context, string) (*Style, error)
 	StyleComments(context.Context, string) ([]Comment, error)
+	StyleTags(context.Context) ([]StyleTag, error)
 }
 
 type client struct {
@@ -799,6 +800,30 @@ func (c *client) StyleComments(ctx context.Context, id string) ([]Comment, error
 	return c.comments(ctx, c.styleEndpoint("/board/"+c.config.styleshopSite+"/article/"+url.PathEscape(id)+"/comment/search/moreComment"), id)
 }
 
+// StyleTags returns what looks can be filtered by: the tags, then the classes, then the genders, with localized names
+func (c *client) StyleTags(ctx context.Context) ([]StyleTag, error) {
+	if err := c.requires(FeatureStyles); err != nil {
+		return nil, err
+	}
+	ep := c.styleEndpoint("/api/" + c.config.styleshopSite + "/tags")
+
+	var raw styleTagsResponse
+	if err := c.get(ctx, ep, c.localeQuery(), &raw); err != nil {
+		return nil, err
+	}
+	if len(raw.UserTags) == 0 || len(raw.Classes) == 0 {
+		return nil, c.drift(ep, "USER_TAG or CLASS")
+	}
+
+	tags := slices.Concat(raw.UserTags, raw.Classes, raw.Genders)
+	for _, tag := range tags {
+		if tag.Code == "" {
+			return nil, c.drift(ep, "codeName on a tag")
+		}
+	}
+	return tags, nil
+}
+
 // comments reads every comment under a post, on the boards or the styleshop
 func (c *client) comments(ctx context.Context, ep endpoint, postID string) ([]Comment, error) {
 	var comments []Comment
@@ -1119,6 +1144,15 @@ func (c *client) requires(f Feature) error {
 }
 
 func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any) error {
+	// the styleshop answers a call with no shard from another one, NAE on top lists and Asia on search so far,
+	// and a post from elsewhere as an empty 200
+	if ep.host == styleshopHost && c.config.shard != "" {
+		if query == nil {
+			query = url.Values{}
+		}
+		query.Set("regionCode", c.config.shard)
+		query.Set("locale", c.config.lang)
+	}
 	u := c.url(ep)
 	if len(query) > 0 {
 		u += "?" + query.Encode()

@@ -122,6 +122,9 @@ for look, err := range kr.Styles(ctx, aion2.StyleSearch{Field: "tag", Keyword: "
     fmt.Println(look.Title, look.Author.Name, look.Images[0])
 }
 
+tags, _ := kr.StyleTags(ctx)
+lovely, _ := kr.SearchStyles(ctx, aion2.StyleSearch{Tags: []string{tags[0].Code}, Class: "GLADIATOR"})
+
 style, _ := kr.Style(ctx, top[0].ID)
 replies, _ := kr.StyleComments(ctx, top[0].ID)
 ```

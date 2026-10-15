@@ -99,6 +99,12 @@ func (q StyleSearch) query() url.Values {
 	if q.Gender != "" {
 		v.Set("charGender", q.Gender)
 	}
+	if q.Class != "" {
+		v.Set("charClass", q.Class)
+	}
+	if len(q.Tags) > 0 {
+		v["userTags"] = q.Tags // repeated or joined with commas, NC takes both
+	}
 	return v
 }
 

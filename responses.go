@@ -199,6 +199,13 @@ type stylesResponse struct {
 	SearchCount int        `json:"searchCount"` // every match on a search; on the top list, the rows served
 }
 
+// GET {styleshopURL}/api/{site}/tags
+type styleTagsResponse struct {
+	UserTags []StyleTag `json:"USER_TAG"`
+	Classes  []StyleTag `json:"CLASS"`
+	Genders  []StyleTag `json:"GENDER"`
+}
+
 // GET {styleshopURL}/board/{site}/article/{id}
 type styleResponse struct {
 	Article *struct {

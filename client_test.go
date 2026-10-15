@@ -108,6 +108,8 @@ func fixtureFor(p string, q url.Values) string {
 		return "comments.json"
 	case strings.HasSuffix(p, "/moreComment") && q.Get("previousCommentId") == "6ab3db1a2de5bf50367f7f09": // the last top-level comment, not the reply after it
 		return "comments_page2.json"
+	case strings.HasSuffix(p, "/tags"):
+		return "style_tags.json"
 	case strings.HasPrefix(p, "/styleshop/board/"):
 		return "style.json"
 	case strings.HasPrefix(p, "/styleshop/") && q.Get("page") == "1":
@@ -254,6 +256,12 @@ func TestDecode(t *testing.T) {
 	ok(err)
 	if len(replies) != 4 || replies[0].PostID != "x" {
 		t.Fatalf("style comments %+v", replies)
+	}
+
+	tags, err := kr.StyleTags(ctx)
+	ok(err)
+	if len(tags) != 6 || tags[0] != (StyleTag{"USER_TAG", "LOVELY", "Lovely"}) || tags[2].Code != "GLADIATOR" || tags[5].Type != "GENDER" {
+		t.Fatalf("style tags %+v", tags)
 	}
 
 	grades, err := tw.ItemGrades(ctx)
@@ -422,6 +430,13 @@ func TestClassFilter(t *testing.T) {
 	}
 	if _, err := tw.SearchItems(ctx, ItemSearch{ClassID: 99}); !errors.Is(err, ErrBadRequest) {
 		t.Fatalf("unknown class: got %v, want ErrBadRequest", err)
+	}
+
+	if _, err := kr.SearchStyles(ctx, StyleSearch{Class: "GLADIATOR", Tags: []string{"LOVELY", "CUTE"}}); err != nil {
+		t.Fatal(err)
+	}
+	if last.Get("charClass") != "GLADIATOR" || !slices.Equal(last["userTags"], []string{"LOVELY", "CUTE"}) {
+		t.Fatalf("style search %v, want charClass and a userTags for each tag", last)
 	}
 }
 
@@ -638,6 +653,14 @@ func TestGlobal(t *testing.T) {
 	ok(err)
 	_, err = sa.PinnedPosts(ctx, BoardNotices)
 	ok(err)
+	_, err = sa.TopStyles(ctx, StyleTop{})
+	ok(err)
+	_, err = sa.SearchStyles(ctx, StyleSearch{Keyword: "x"})
+	ok(err)
+	_, err = sa.Style(ctx, "x")
+	ok(err)
+	_, err = sa.StyleComments(ctx, "x")
+	ok(err)
 
 	// NC falls back to North America East on a missing or unknown shard, so every site call must name it
 	for _, u := range sent {
@@ -646,6 +669,10 @@ func TestGlobal(t *testing.T) {
 		case strings.HasPrefix(u.Path, "/community/"):
 			if !strings.Contains(u.Path, "/notice_pt/") {
 				t.Errorf("board %s, want notice_pt", u.Path)
+			}
+		case strings.HasPrefix(u.Path, "/styleshop/"):
+			if !strings.Contains(u.Path, "/aion2_global/") || q.Get("regionCode") != "la" || q.Get("locale") != "pt-BR" {
+				t.Errorf("styleshop %s?%s, want aion2_global with regionCode la and locale pt-BR", u.Path, u.RawQuery)
 			}
 		case u.Path == "/search/character":
 			if q.Get("region") != "la" || q.Get("localeInfo") != "pt-BR" || q.Has("race") {

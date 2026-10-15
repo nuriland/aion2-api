@@ -503,10 +503,19 @@ type StyleTop struct {
 // StyleSearch matches looks by a word in their title and text, or in Field
 type StyleSearch struct {
 	Keyword string
-	Field   string // name (the character's), item (something worn) or tag; empty is title and text
-	Gender  string // MALE or FEMALE, I think empty is both but I'm not sure
-	Page    int    // default 1
-	Size    int    // default 20 (max 100)
+	Field   string   // name, item or a tag, empty is title and text
+	Gender  string   // MALE or FEMALE, empty is both
+	Tags    []string // USER_TAG codes from StyleTags, a look must carry them all
+	Class   string   // a CLASS code from StyleTags, like GLADIATOR, @TODO: add class enums
+	Page    int      // default 1
+	Size    int      // default 20 (max 100)
+}
+
+// StyleTag is a value the styleshop filters on. Its Code feeds StyleSearch.Tags, Class or Gender, by Type
+type StyleTag struct {
+	Type string `json:"type"`        // USER_TAG, CLASS or GENDER
+	Code string `json:"codeName"`    // like LOVELY or GLADIATOR, but KR and TW spell their USER_TAG codes in their language, 러블리
+	Name string `json:"displayName"` // localized
 }
 
 // StyleSummary is one styleshop post as the lists show it: a character's look and its screenshots
