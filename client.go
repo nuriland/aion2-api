@@ -469,12 +469,10 @@ func (c *client) Item(ctx context.Context, id int) (*Item, error) {
 		return nil, c.errorf(itemEndpoint, ErrBadRequest, "Item needs an id")
 	}
 
-	// items are the same on all of Global
-	query := url.Values{
-		"lang":         {c.config.lang},
-		"id":           {strconv.Itoa(id)},
-		"enchantLevel": {"0"}, // required (?)
-	}
+	// items are the same on all of Global, but NC's site sends the shard since its Oct 12 build
+	query := c.siteQuery()
+	query.Set("id", strconv.Itoa(id))
+	query.Set("enchantLevel", "0") // required (?)
 
 	var body json.RawMessage
 	if err := c.get(ctx, itemEndpoint, query, &body); err != nil {

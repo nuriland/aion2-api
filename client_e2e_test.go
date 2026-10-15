@@ -273,6 +273,17 @@ func TestE2EItem(t *testing.T) {
 
 			item, err := c.Item(t.Context(), r.item)
 			skipGeoFenced(t, c, err)
+			// @TODO: NC took the route off Global around Oct 12 2026 while its own site still calls it.
+			if r.early {
+				switch {
+				case errors.Is(err, ErrNoRoute):
+					t.Skip("NC does not serve items on Global since Oct 12 2026")
+				case err == nil:
+					t.Fatal("NC serves items on Global again")
+				default:
+					t.Fatal(err)
+				}
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

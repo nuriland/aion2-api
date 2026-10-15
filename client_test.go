@@ -647,15 +647,11 @@ func TestGlobal(t *testing.T) {
 			if !strings.Contains(u.Path, "/notice_pt/") {
 				t.Errorf("board %s, want notice_pt", u.Path)
 			}
-		case strings.HasSuffix(u.Path, "/gameconst/item"):
-			if !strings.HasPrefix(u.Path, "/pt-br/api/") || q.Get("lang") != "pt-BR" || q.Has("region") {
-				t.Errorf("%s?%s, want it under /pt-br with lang pt-BR and no region", u.Path, u.RawQuery)
-			}
 		case u.Path == "/search/character":
 			if q.Get("region") != "la" || q.Get("localeInfo") != "pt-BR" || q.Has("race") {
 				t.Errorf("search %s, want region la, localeInfo pt-BR and no race", u.RawQuery)
 			}
-		case strings.Contains(u.Path, "/gameinfo/"):
+		case strings.Contains(u.Path, "/gameinfo/"), strings.HasSuffix(u.Path, "/gameconst/item"):
 			if !strings.HasPrefix(u.Path, "/pt-br/api/") || q.Get("lang") != "pt-BR" || q.Get("region") != "la" {
 				t.Errorf("%s?%s, want it under /pt-br with lang pt-BR and region la", u.Path, u.RawQuery)
 			}
