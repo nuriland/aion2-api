@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help check fmt vet lint test test-v cover e2e probe mcp
+.PHONY: help check fmt vet lint test test-v cover e2e probe
 
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.1
 
@@ -33,6 +33,3 @@ e2e: ## real requests against NC, every region
 
 probe: ## run the example end to end
 	go run ./examples/probe $(ARGS)
-
-mcp: ## run the MCP server on stdio, e.g. make mcp ARGS="-region eu -v"
-	go run ./cmd/aion2-mcp $(ARGS)
