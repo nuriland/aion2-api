@@ -89,8 +89,10 @@ func (c *client) Locale() Locale { return c.config.locale }
 // Rankings answers ErrNoSeason on every region while NC keeps the public boards off
 func (c *client) Supports(f Feature) bool {
 	switch f {
-	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch, FeatureItems, FeatureRankings:
+	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch, FeatureRankings:
 		return true
+	case FeatureItems:
+		return c.config.shard == "" // NC took the route off Global around Oct 12 2026, while its own site still calls it
 	case FeatureItemSearch:
 		return c.config.dictPrefix != ""
 	case FeatureNews:
@@ -466,6 +468,9 @@ func (c *client) Items(ctx context.Context, q ItemSearch) iter.Seq2[ItemSummary,
 
 // Item is one item's definition at +0 in the client's locale
 func (c *client) Item(ctx context.Context, id int) (*Item, error) {
+	if err := c.requires(FeatureItems); err != nil {
+		return nil, err
+	}
 	if id <= 0 {
 		return nil, c.errorf(itemEndpoint, ErrBadRequest, "Item needs an id")
 	}
@@ -704,13 +709,15 @@ func (c *client) TopStyles(ctx context.Context, q StyleTop) ([]StyleSummary, err
 	}
 }
 
-// SearchStyles matches looks by a word; Field narrows it to the character's name, a worn item or a tag
+// SearchStyles matches looks by a word in their title, or with Field in the character's name or a worn item's
 func (c *client) SearchStyles(ctx context.Context, q StyleSearch) (*Paged[StyleSummary], error) {
 	if err := c.requires(FeatureStyles); err != nil {
 		return nil, err
 	}
 	q.Page = max(q.Page, 1)
 	switch {
+	case !slices.Contains([]string{"", "title", "name", "item"}, q.Field): // NC reads any other field, tag included, as title
+		return nil, c.errorf(endpoint{feature: FeatureStyles}, ErrBadRequest, "StyleSearch.Field is title, name or item, a tag goes in Tags")
 	case q.Size <= 0:
 		q.Size = 20
 	case q.Size > 100: // NC answers a page it will not fill with zero rows, not an error

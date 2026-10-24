@@ -571,6 +571,7 @@ func TestPreflight(t *testing.T) {
 		"item id":    {func() error { _, err := kr.Item(ctx, 0); return err }, ErrBadRequest},
 		"style id":   {func() error { _, err := kr.Style(ctx, ""); return err }, ErrBadRequest},
 		"style size": {func() error { _, err := kr.SearchStyles(ctx, StyleSearch{Size: 101}); return err }, ErrBadRequest},
+		"style tag":  {func() error { _, err := kr.SearchStyles(ctx, StyleSearch{Field: "tag", Keyword: "x"}); return err }, ErrBadRequest},
 		"reply id":   {func() error { _, err := kr.StyleComments(ctx, ""); return err }, ErrBadRequest},
 		"kr items":   {func() error { _, err := kr.SearchItems(ctx, ItemSearch{}); return err }, ErrFeatureUnavailable},
 		"kr suggest": {func() error { _, err := kr.SuggestItems(ctx, "a"); return err }, ErrFeatureUnavailable},
@@ -647,8 +648,9 @@ func TestGlobal(t *testing.T) {
 	ok(err)
 	_, err = sa.Daevanion(ctx, alpha, 71)
 	ok(err)
-	_, err = sa.Item(ctx, 110120001)
-	ok(err)
+	if _, err := sa.Item(ctx, 110120001); !errors.Is(err, ErrFeatureUnavailable) {
+		t.Fatalf("item: got %v, want ErrFeatureUnavailable", err)
+	}
 	_, err = sa.Rankings(ctx, RankingQuery{ContentsType: RankingAbyss, ServerID: 1401})
 	ok(err)
 	_, err = sa.PinnedPosts(ctx, BoardNotices)
@@ -678,7 +680,7 @@ func TestGlobal(t *testing.T) {
 			if q.Get("region") != "la" || q.Get("localeInfo") != "pt-BR" || q.Has("race") {
 				t.Errorf("search %s, want region la, localeInfo pt-BR and no race", u.RawQuery)
 			}
-		case strings.Contains(u.Path, "/gameinfo/"), strings.HasSuffix(u.Path, "/gameconst/item"):
+		case strings.Contains(u.Path, "/gameinfo/"):
 			if !strings.HasPrefix(u.Path, "/pt-br/api/") || q.Get("lang") != "pt-BR" || q.Get("region") != "la" {
 				t.Errorf("%s?%s, want it under /pt-br with lang pt-BR and region la", u.Path, u.RawQuery)
 			}
@@ -828,6 +830,11 @@ func TestNewConfig(t *testing.T) {
 		if _, err := NewConfig(ConfigOpts{Region: region, Locale: locale}); err != nil {
 			t.Fatalf("%s on %s: %v", locale, region, err)
 		}
+	}
+
+	// TW's own site sends lang=zh, and its dictionary takes zh-TW as the locale (it answers one it does not know in Korean)
+	if cfg, _ := NewConfig(ConfigOpts{Region: RegionTW}); cfg.lang != "zh" || fullTag(cfg.locale) != "zh-TW" {
+		t.Fatalf("TW lang %q locale %q, want zh and zh-TW", cfg.lang, fullTag(cfg.locale))
 	}
 }
 

@@ -119,12 +119,15 @@ func NewConfig(opts ConfigOpts) (Config, error) {
 	}
 
 	var lang = string(opts.Locale)
-	if region.shard != "" {
+	switch {
+	case region.shard != "":
 		// Global wants the full tag everywhere, and answers anything shorter in English
 		lang = fullTag(opts.Locale)
 		language, _, _ := strings.Cut(lang, "-")
 		region.localePath = "/" + strings.ToLower(lang)
 		region.boardSuffix = "_" + language
+	case opts.Locale == LocaleZHTW:
+		lang = "zh" // what TW's own site sends, though it answers any lang it does not know in Chinese
 	}
 	if opts.UserAgent == "" {
 		opts.UserAgent = defaultUserAgent

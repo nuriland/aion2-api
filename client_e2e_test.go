@@ -2,9 +2,11 @@ package aion2
 
 import (
 	"cmp"
+	"encoding/json"
 	"errors"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -19,15 +21,15 @@ var e2eRegions = []struct {
 	item     int
 	itemName string
 	items    bool
-	early    bool
+	global   bool
 }{
 	{region: RegionKR, servers: 42, classes: 9, server: 1001, item: 110120001, itemName: "Noble Dragon Lord Greatsword"},
 	{region: RegionTW, servers: 36, classes: 9, server: 1001, item: 110120001, itemName: "Noble Dragon Lord Greatsword", items: true},
-	{region: RegionNAE, servers: 4, classes: 8, server: 1101, item: 110160008, itemName: "Training Greatsword", early: true},
-	{region: RegionNAW, servers: 2, classes: 8, server: 1201, item: 110160008, itemName: "Training Greatsword", early: true},
-	{region: RegionEU, servers: 14, classes: 8, server: 1301, item: 110160008, itemName: "Training Greatsword", early: true},
-	{region: RegionSA, servers: 4, classes: 8, server: 1401, item: 110160008, itemName: "Training Greatsword", early: true},
-	{region: RegionAsia, servers: 6, classes: 8, server: 1501, item: 110160008, itemName: "Training Greatsword", early: true},
+	{region: RegionNAE, servers: 4, classes: 8, server: 1101, item: 110160008, itemName: "Training Greatsword", global: true},
+	{region: RegionNAW, servers: 2, classes: 8, server: 1201, item: 110160008, itemName: "Training Greatsword", global: true},
+	{region: RegionEU, servers: 14, classes: 8, server: 1301, item: 110160008, itemName: "Training Greatsword", global: true},
+	{region: RegionSA, servers: 4, classes: 8, server: 1401, item: 110160008, itemName: "Training Greatsword", global: true},
+	{region: RegionAsia, servers: 6, classes: 8, server: 1501, item: 110160008, itemName: "Training Greatsword", global: true},
 }
 
 func newE2EClient(t *testing.T, region Region) Aion2Client {
@@ -203,14 +205,12 @@ func TestE2EEquipment(t *testing.T) {
 				t.Fatalf("got item %q, want %q", item.Name, eq.Slots[0].Name)
 			}
 
-			// If the region doesn't have Arcana yet just skip
-			if r.early {
-				return
-			}
-
 			// Arcana are slots 41 and up, and the tooltip endpoint answers for them like any other slot
 			arcana := slices.IndexFunc(eq.Slots, func(s EquipSlot) bool { return s.SlotPos >= 41 })
-			if arcana < 0 {
+			switch {
+			case arcana < 0 && r.global: // not everyone at Global's level cap wears one yet
+				t.Skipf("%s wears no Arcana among %d slots", hit.Name, len(eq.Slots))
+			case arcana < 0:
 				t.Fatalf("%s wears no Arcana among %d slots", hit.Name, len(eq.Slots))
 			}
 			card, err := c.EquippedItem(t.Context(), hit.Ref, eq.Slots[arcana])
@@ -271,19 +271,25 @@ func TestE2EItem(t *testing.T) {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
 
+			if got := c.Supports(FeatureItems); got == r.global {
+				t.Fatalf("Supports(FeatureItems) = %v, want %v", got, !r.global)
+			}
+
+			// NC took the route off Global around Oct 12 2026 while its own site still calls it.
+			// The day this fails, turn FeatureItems back on for Global
+			if r.global {
+				cl := c.(*client)
+				q := cl.siteQuery()
+				q.Set("id", strconv.Itoa(r.item))
+				q.Set("enchantLevel", "0")
+				if err := cl.get(t.Context(), itemEndpoint, q, new(json.RawMessage)); !errors.Is(err, ErrNoRoute) {
+					t.Fatalf("Global's item route: got %v, want ErrNoRoute", err)
+				}
+				return
+			}
+
 			item, err := c.Item(t.Context(), r.item)
 			skipGeoFenced(t, c, err)
-			// @TODO: NC took the route off Global around Oct 12 2026 while its own site still calls it.
-			if r.early {
-				switch {
-				case errors.Is(err, ErrNoRoute):
-					t.Skip("NC does not serve items on Global since Oct 12 2026")
-				case err == nil:
-					t.Fatal("NC serves items on Global again")
-				default:
-					t.Fatal(err)
-				}
-			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -351,7 +357,7 @@ func TestE2EStyles(t *testing.T) {
 			if first.Region != r.region || first.Author.Ref.CharacterID == "" || len(first.Images) == 0 || first.Downloads == 0 {
 				t.Fatalf("look %+v", first)
 			}
-			if other, seen := tops[first.ID]; seen && r.early {
+			if other, seen := tops[first.ID]; seen && r.global {
 				t.Fatalf("top look %s is %s's too", first.ID, other)
 			}
 			tops[first.ID] = r.region
@@ -472,8 +478,8 @@ func TestE2EPosts(t *testing.T) {
 			}
 
 			boards := []Board{BoardPatchNotes, BoardDevNews, BoardNotices}
-			if r.early {
-				boards = []Board{BoardNotices}
+			if r.global {
+				boards = []Board{BoardPatchNotes, BoardNotices} // Global's dev news board is empty so far
 			}
 			for _, board := range boards {
 				posts := latestPosts(t, c, board, 10)
@@ -490,8 +496,8 @@ func TestE2EPosts(t *testing.T) {
 				}
 			}
 
-			// If the region doesn't have patch notes yet just skip
-			if r.early {
+			// Global has too few patch notes to page through so far
+			if r.global {
 				return
 			}
 			walked, err := collect(c.Posts(t.Context(), BoardPatchNotes))
@@ -516,12 +522,9 @@ func TestE2EPost(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
-			if r.early {
-				t.Skip("no dev news in Early Access")
-			}
 
-			posts := latestPosts(t, c, BoardDevNews, 1)
-			post, err := c.Post(t.Context(), BoardDevNews, posts[0].ID)
+			posts := latestPosts(t, c, BoardPatchNotes, 1)
+			post, err := c.Post(t.Context(), BoardPatchNotes, posts[0].ID)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -532,7 +535,7 @@ func TestE2EPost(t *testing.T) {
 				t.Fatal("post has no body")
 			}
 
-			_, err = c.Post(t.Context(), BoardDevNews, "000000000000000000000000")
+			_, err = c.Post(t.Context(), BoardPatchNotes, "000000000000000000000000")
 			if !errors.Is(err, ErrNotFound) {
 				t.Fatalf("got %v, want ErrNotFound", err)
 			}
@@ -544,8 +547,8 @@ func TestE2ECommunityPosts(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
 			c := newE2EClient(t, r.region)
-			if r.early {
-				t.Skip("no player boards in Early Access")
+			if r.global {
+				t.Skip("no player boards on Global so far")
 			}
 
 			posts := latestPosts(t, c, BoardFree, 10)
@@ -583,6 +586,27 @@ func TestE2ECommunityPosts(t *testing.T) {
 	}
 }
 
+// Every player board lists on KR and TW, and none exists on Global so far
+func TestE2EPlayerBoards(t *testing.T) {
+	for _, r := range e2eRegions {
+		t.Run(string(r.region), func(t *testing.T) {
+			c := newE2EClient(t, r.region)
+
+			for _, board := range []Board{BoardFree, BoardRecruit, BoardTips, BoardMedia} {
+				if r.global {
+					if _, err := collect(c.Posts(t.Context(), board)); !errors.Is(err, ErrNotFound) {
+						t.Errorf("%s: got %v, want ErrNotFound", board, err)
+					}
+					continue
+				}
+				if len(latestPosts(t, c, board, 1)) == 0 {
+					t.Errorf("%s: no posts", board)
+				}
+			}
+		})
+	}
+}
+
 func TestE2EPinnedPosts(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
@@ -607,8 +631,8 @@ func TestE2EPinnedPosts(t *testing.T) {
 func TestE2EComments(t *testing.T) {
 	for _, r := range e2eRegions {
 		t.Run(string(r.region), func(t *testing.T) {
-			if r.early {
-				t.Skip("no player boards in Early Access")
+			if r.global {
+				t.Skip("no player boards on Global so far")
 			}
 			var (
 				c     = newE2EClient(t, r.region)

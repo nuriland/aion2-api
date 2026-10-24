@@ -24,7 +24,8 @@ res, _ := eu.SearchCharacters(ctx, aion2.CharacterSearch{Keyword: "a"})
 ch, _ := eu.Character(ctx, res.Items[0].Ref)
 ```
 
-Global has no item catalog (`Item` by id works) and, so far, no player boards.
+Global has no item catalog and no player boards. NC also took `Item`'s route off Global around Oct 12 2026,
+though its own site still calls it, so `Supports(aion2.FeatureItems)` is false there.
 
 ## Servers and classes
 
@@ -112,10 +113,9 @@ fmt.Println(board.Season.SeasonNo, len(board.Entries))
 
 ```go
 top, _ := kr.TopStyles(ctx, aion2.StyleTop{Period: "DAY_30", SortBy: "LIKES"})
-
 page, _ := kr.SearchStyles(ctx, aion2.StyleSearch{Field: "item", Keyword: "대검", Gender: "MALE", Size: 20})
 
-for look, err := range kr.Styles(ctx, aion2.StyleSearch{Field: "tag", Keyword: "러블리"}) {
+for look, err := range kr.Styles(ctx, aion2.StyleSearch{Tags: []string{"러블리"}}) { // KR and TW spell their tag codes in their own language
     if err != nil {
         return err
     }

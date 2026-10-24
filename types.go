@@ -453,8 +453,8 @@ const (
 
 	BoardFree    Board = "free"           // general discussion
 	BoardRecruit Board = "member_recruit" // legion recruitment
-	BoardTips    Board = "tip"
-	BoardMedia   Board = "image" // screenshots and videos
+	BoardTips    Board = "qnanknowhow"    // questions and tips, where the menus point. The older "tip" board still lists
+	BoardMedia   Board = "image"          // screenshots and videos
 )
 
 // Post is one board post. HTML is set only by Post, not Posts.
@@ -500,10 +500,10 @@ type StyleTop struct {
 	Gender string // MALE or FEMALE; empty is both
 }
 
-// StyleSearch matches looks by a word in their title and text, or in Field
+// StyleSearch matches looks by a word in their title, or in a field
 type StyleSearch struct {
 	Keyword string
-	Field   string   // name, item or a tag, empty is title and text
+	Field   string   // title (the default), name for the character's or item for a worn piece's
 	Gender  string   // MALE or FEMALE, empty is both
 	Tags    []string // USER_TAG codes from StyleTags, a look must carry them all
 	Class   string   // a CLASS code from StyleTags, like GLADIATOR, @TODO: add class enums
