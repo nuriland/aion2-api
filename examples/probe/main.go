@@ -39,7 +39,7 @@ func main() {
 	}
 }
 
-func site(ctx context.Context, c aion2.Aion2Client) {
+func site(ctx context.Context, c *aion2.Client) {
 	servers, err := c.Servers(ctx)
 	if errors.Is(err, aion2.ErrNoRoute) { // KR's site answers nothing outside Korea; its boards and styleshop still do
 		fmt.Printf("%s: site not served from here\n", c.Region())
@@ -74,7 +74,7 @@ func site(ctx context.Context, c aion2.Aion2Client) {
 	}
 }
 
-func community(ctx context.Context, c aion2.Aion2Client) {
+func community(ctx context.Context, c *aion2.Client) {
 	for note, err := range c.Posts(ctx, aion2.BoardPatchNotes) {
 		check(err)
 		fmt.Printf("%s: latest patch notes %q (%s)\n", c.Region(), note.Title, note.PostedAt.Format("2006-01-02"))

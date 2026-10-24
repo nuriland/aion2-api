@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func newTestClient(t *testing.T, opts ConfigOpts, h http.Handler) (*client, *recorder) {
+func newTestClient(t *testing.T, opts ConfigOpts, h http.Handler) (*Client, *recorder) {
 	t.Helper()
 	rec := &recorder{next: h}
 	srv := httptest.NewServer(rec)

@@ -32,7 +32,7 @@ var e2eRegions = []struct {
 	{region: RegionAsia, servers: 6, classes: 8, server: 1501, item: 110160008, itemName: "Training Greatsword", global: true},
 }
 
-func newE2EClient(t *testing.T, region Region) Aion2Client {
+func newE2EClient(t *testing.T, region Region) *Client {
 	t.Helper()
 	if os.Getenv(e2eEnv) == "" {
 		t.Skipf("set %s=1 to run against NC", e2eEnv)
@@ -44,7 +44,7 @@ func newE2EClient(t *testing.T, region Region) Aion2Client {
 	return c
 }
 
-func findCharacter(t *testing.T, c Aion2Client, server int) CharacterSummary {
+func findCharacter(t *testing.T, c *Client, server int) CharacterSummary {
 	t.Helper()
 	res, err := c.SearchCharacters(t.Context(), CharacterSearch{Keyword: "a", RaceID: 1, ServerID: server, Size: 200}) // 200 rows so the pick is max level
 	skipGeoFenced(t, c, err)
@@ -58,14 +58,14 @@ func findCharacter(t *testing.T, c Aion2Client, server int) CharacterSummary {
 }
 
 // skipGeoFenced only skips KR due to server-side limitations from NC
-func skipGeoFenced(t *testing.T, c Aion2Client, err error) {
+func skipGeoFenced(t *testing.T, c *Client, err error) {
 	t.Helper()
 	if c.Region() == RegionKR && errors.Is(err, ErrNoRoute) {
 		t.Skip("NC does not serve KR's site from here")
 	}
 }
 
-func latestPosts(t *testing.T, c Aion2Client, board Board, n int) []Post {
+func latestPosts(t *testing.T, c *Client, board Board, n int) []Post {
 	t.Helper()
 
 	var posts []Post
@@ -278,11 +278,10 @@ func TestE2EItem(t *testing.T) {
 			// NC took the route off Global around Oct 12 2026 while its own site still calls it.
 			// The day this fails, turn FeatureItems back on for Global
 			if r.global {
-				cl := c.(*client)
-				q := cl.siteQuery()
+				q := c.siteQuery()
 				q.Set("id", strconv.Itoa(r.item))
 				q.Set("enchantLevel", "0")
-				if err := cl.get(t.Context(), itemEndpoint, q, new(json.RawMessage)); !errors.Is(err, ErrNoRoute) {
+				if err := c.get(t.Context(), itemEndpoint, q, new(json.RawMessage)); !errors.Is(err, ErrNoRoute) {
 					t.Fatalf("Global's item route: got %v, want ErrNoRoute", err)
 				}
 				return

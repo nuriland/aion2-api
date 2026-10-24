@@ -17,54 +17,13 @@ import (
 	"github.com/nuriland/aion2-api/internal/cache"
 )
 
-type Aion2Client interface {
-	Region() Region
-	Locale() Locale
-	Supports(Feature) bool
-
-	Servers(context.Context) ([]Server, error)
-	Classes(context.Context) ([]Class, error)
-
-	SearchCharacters(context.Context, CharacterSearch) (*Paged[CharacterSummary], error)
-	Characters(context.Context, CharacterSearch) iter.Seq2[CharacterSummary, error]
-	Character(context.Context, CharacterRef) (*Character, error)
-
-	Equipment(context.Context, CharacterRef) (*Equipment, error)
-	EquippedItem(context.Context, CharacterRef, EquipSlot) (*EquippedItem, error)
-
-	Daevanion(context.Context, CharacterRef, int) (*DaevanionBoard, error)
-
-	SearchItems(context.Context, ItemSearch) (*Paged[ItemSummary], error)
-	Items(context.Context, ItemSearch) iter.Seq2[ItemSummary, error]
-	SuggestItems(context.Context, string) ([]string, error)
-	Item(context.Context, int) (*Item, error)
-	ItemGrades(context.Context) ([]ItemGrade, error)
-	ItemCategories(context.Context) ([]ItemCategory, error)
-
-	Rankings(context.Context, RankingQuery) (*RankingPage, error)
-
-	Posts(context.Context, Board) iter.Seq2[Post, error]
-	PinnedPosts(context.Context, Board) ([]Post, error)
-	Post(context.Context, Board, string) (*Post, error)
-	Comments(context.Context, Board, string) ([]Comment, error)
-
-	TopStyles(context.Context, StyleTop) ([]StyleSummary, error)
-	SearchStyles(context.Context, StyleSearch) (*Paged[StyleSummary], error)
-	Styles(context.Context, StyleSearch) iter.Seq2[StyleSummary, error]
-	Style(context.Context, string) (*Style, error)
-	StyleComments(context.Context, string) ([]Comment, error)
-	StyleTags(context.Context) ([]StyleTag, error)
-}
-
-type client struct {
+type Client struct {
 	config Config
 
 	classes cache.Value[*classTable]
 }
 
-var _ Aion2Client = &client{}
-
-func New(cfgOpts ConfigOpts) (*client, error) {
+func New(cfgOpts ConfigOpts) (*Client, error) {
 	cfg, err := NewConfig(cfgOpts)
 	if err != nil {
 		return nil, err
@@ -72,22 +31,22 @@ func New(cfgOpts ConfigOpts) (*client, error) {
 	return newClient(cfg), nil
 }
 
-func newClient(cfg Config) *client {
-	return &client{
+func newClient(cfg Config) *Client {
+	return &Client{
 		config:  cfg,
 		classes: cache.Value[*classTable]{TTL: cacheTTL, Retry: cacheRetry},
 	}
 }
 
 // Region returns the client's initialised region
-func (c *client) Region() Region { return c.config.region }
+func (c *Client) Region() Region { return c.config.region }
 
 // Locale returns the client's initialised locale
-func (c *client) Locale() Locale { return c.config.locale }
+func (c *Client) Locale() Locale { return c.config.locale }
 
 // Supports reports whether the region has the backend a feature calls. It says nothing about the data behind it:
 // Rankings answers ErrNoSeason on every region while NC keeps the public boards off
-func (c *client) Supports(f Feature) bool {
+func (c *Client) Supports(f Feature) bool {
 	switch f {
 	case FeatureServers, FeatureClasses, FeatureCharacters, FeatureSearch, FeatureRankings:
 		return true
@@ -104,7 +63,7 @@ func (c *client) Supports(f Feature) bool {
 }
 
 // Servers returns the list of servers in the client's initialised region
-func (c *client) Servers(ctx context.Context) ([]Server, error) {
+func (c *Client) Servers(ctx context.Context) ([]Server, error) {
 	var raw serversResponse
 	if err := c.get(ctx, serversEndpoint, c.siteQuery(), &raw); err != nil {
 		return nil, err
@@ -123,7 +82,7 @@ func (c *client) Servers(ctx context.Context) ([]Server, error) {
 }
 
 // Classes returns the list of classes in the client's initialised region
-func (c *client) Classes(ctx context.Context) ([]Class, error) {
+func (c *Client) Classes(ctx context.Context) ([]Class, error) {
 	var raw classesResponse
 	if err := c.get(ctx, classesEndpoint, c.siteQuery(), &raw); err != nil {
 		return nil, err
@@ -142,7 +101,7 @@ func (c *client) Classes(ctx context.Context) ([]Class, error) {
 // SearchCharacters searches for characters by name
 //
 // @TODO: refac
-func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Paged[CharacterSummary], error) {
+func (c *Client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Paged[CharacterSummary], error) {
 	switch {
 	case cs.Keyword == "":
 		return nil, c.errorf(searchEndpoint, ErrBadRequest, "CharacterSearch needs a Keyword")
@@ -210,7 +169,7 @@ func (c *client) SearchCharacters(ctx context.Context, cs CharacterSearch) (*Pag
 }
 
 // Characters walks every match, page after page. Size is the rows a page asks for, 200 unless set
-func (c *client) Characters(ctx context.Context, cs CharacterSearch) iter.Seq2[CharacterSummary, error] {
+func (c *Client) Characters(ctx context.Context, cs CharacterSearch) iter.Seq2[CharacterSummary, error] {
 	if cs.Size <= 0 {
 		cs.Size = 200
 	}
@@ -221,7 +180,7 @@ func (c *client) Characters(ctx context.Context, cs CharacterSearch) iter.Seq2[C
 }
 
 // Character returns the profile of a character on a given server
-func (c *client) Character(ctx context.Context, ref CharacterRef) (*Character, error) {
+func (c *Client) Character(ctx context.Context, ref CharacterRef) (*Character, error) {
 	query, ref, err := c.characterQuery(characterEndpoint, ref)
 	if err != nil {
 		return nil, err
@@ -274,7 +233,7 @@ var itemLevelLabels = map[Locale]string{
 }
 
 // localizeStats labels the stats NC leaves in Korean in the client's locale
-func (c *client) localizeStats(stats []Stat) []Stat {
+func (c *Client) localizeStats(stats []Stat) []Stat {
 	label, ok := itemLevelLabels[c.config.locale]
 	if !ok {
 		return stats
@@ -290,7 +249,7 @@ func (c *client) localizeStats(stats []Stat) []Stat {
 // characterQuery is the query every character endpoint shares. It returns the ref with its ID decoded.
 //
 // @TODO: refac
-func (c *client) characterQuery(ep endpoint, ref CharacterRef) (url.Values, CharacterRef, error) {
+func (c *Client) characterQuery(ep endpoint, ref CharacterRef) (url.Values, CharacterRef, error) {
 	ref.CharacterID = decodeCharacterID(ref.CharacterID)
 	if ref.ServerID <= 0 || ref.CharacterID == "" {
 		return nil, ref, c.errorf(ep, ErrBadRequest, "CharacterRef needs ServerID and CharacterID")
@@ -302,7 +261,7 @@ func (c *client) characterQuery(ep endpoint, ref CharacterRef) (url.Values, Char
 }
 
 // Equipment returns the equipment of a character on a given server
-func (c *client) Equipment(ctx context.Context, ref CharacterRef) (*Equipment, error) {
+func (c *Client) Equipment(ctx context.Context, ref CharacterRef) (*Equipment, error) {
 	query, ref, err := c.characterQuery(equipmentEndpoint, ref)
 	if err != nil {
 		return nil, err
@@ -340,7 +299,7 @@ func (c *client) Equipment(ctx context.Context, ref CharacterRef) (*Equipment, e
 	}, nil
 }
 
-func (c *client) EquippedItem(ctx context.Context, ref CharacterRef, slot EquipSlot) (*EquippedItem, error) {
+func (c *Client) EquippedItem(ctx context.Context, ref CharacterRef, slot EquipSlot) (*EquippedItem, error) {
 	query, ref, err := c.characterQuery(equippedItemEndpoint, ref)
 	if err != nil {
 		return nil, err
@@ -373,7 +332,7 @@ func (c *client) EquippedItem(ctx context.Context, ref CharacterRef, slot EquipS
 	return item, nil
 }
 
-func (c *client) Daevanion(ctx context.Context, ref CharacterRef, boardID int) (*DaevanionBoard, error) {
+func (c *Client) Daevanion(ctx context.Context, ref CharacterRef, boardID int) (*DaevanionBoard, error) {
 	query, ref, err := c.characterQuery(daevanionEndpoint, ref)
 	if err != nil {
 		return nil, err
@@ -405,7 +364,7 @@ func (c *client) Daevanion(ctx context.Context, ref CharacterRef, boardID int) (
 // SearchItems searches for items by name, grade, category, sub-category and class
 //
 // @TODO: refac
-func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSummary], error) {
+func (c *Client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSummary], error) {
 	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
@@ -456,7 +415,7 @@ func (c *client) SearchItems(ctx context.Context, q ItemSearch) (*Paged[ItemSumm
 }
 
 // Items walks every match, page after page. Size is the rows a page asks for, 200 unless set
-func (c *client) Items(ctx context.Context, q ItemSearch) iter.Seq2[ItemSummary, error] {
+func (c *Client) Items(ctx context.Context, q ItemSearch) iter.Seq2[ItemSummary, error] {
 	if q.Size <= 0 {
 		q.Size = 200
 	}
@@ -467,7 +426,7 @@ func (c *client) Items(ctx context.Context, q ItemSearch) iter.Seq2[ItemSummary,
 }
 
 // Item is one item's definition at +0 in the client's locale
-func (c *client) Item(ctx context.Context, id int) (*Item, error) {
+func (c *Client) Item(ctx context.Context, id int) (*Item, error) {
 	if err := c.requires(FeatureItems); err != nil {
 		return nil, err
 	}
@@ -499,7 +458,7 @@ func (c *client) Item(ctx context.Context, id int) (*Item, error) {
 }
 
 // ItemGrades returns the dictionary's grades with their localized names
-func (c *client) ItemGrades(ctx context.Context) ([]ItemGrade, error) {
+func (c *Client) ItemGrades(ctx context.Context) ([]ItemGrade, error) {
 	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
@@ -519,7 +478,7 @@ func (c *client) ItemGrades(ctx context.Context) ([]ItemGrade, error) {
 }
 
 // ItemCategories returns the dictionary's category tree with localized names
-func (c *client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
+func (c *Client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
 	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
@@ -539,7 +498,7 @@ func (c *client) ItemCategories(ctx context.Context) ([]ItemCategory, error) {
 }
 
 // SuggestItems is the item page's autocomplete: up to 10 names in the client's locale that contain the keyword, no ids
-func (c *client) SuggestItems(ctx context.Context, keyword string) ([]string, error) {
+func (c *Client) SuggestItems(ctx context.Context, keyword string) ([]string, error) {
 	if err := c.requires(FeatureItemSearch); err != nil {
 		return nil, err
 	}
@@ -561,7 +520,7 @@ func (c *client) SuggestItems(ctx context.Context, keyword string) ([]string, er
 
 // Rankings returns one board of the official ranking page, per server. NC has kept the public boards off
 // since 2026, so every board answers ErrNoSeason until they return
-func (c *client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, error) {
+func (c *Client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, error) {
 	if q.ContentsType == 0 || q.ServerID <= 0 {
 		return nil, c.errorf(rankingsEndpoint, ErrBadRequest, "RankingQuery needs ContentsType and ServerID")
 	}
@@ -598,7 +557,7 @@ func (c *client) Rankings(ctx context.Context, q RankingQuery) (*RankingPage, er
 }
 
 // Posts walks a post board in a reverse chronological order starting from newest first, back to its first post
-func (c *client) Posts(ctx context.Context, board Board) iter.Seq2[Post, error] {
+func (c *Client) Posts(ctx context.Context, board Board) iter.Seq2[Post, error] {
 	return func(yield func(Post, error) bool) {
 		if err := c.requires(FeatureNews); err != nil {
 			yield(Post{}, err)
@@ -621,7 +580,7 @@ func (c *client) Posts(ctx context.Context, board Board) iter.Seq2[Post, error] 
 }
 
 // Post returns one post with its body as HTML
-func (c *client) Post(ctx context.Context, board Board, id string) (*Post, error) {
+func (c *Client) Post(ctx context.Context, board Board, id string) (*Post, error) {
 	if err := c.requires(FeatureNews); err != nil {
 		return nil, err
 	}
@@ -647,7 +606,7 @@ func (c *client) Post(ctx context.Context, board Board, id string) (*Post, error
 }
 
 // PinnedPosts returns the posts NC pinned above a board. An unknown board reads as nothing pinned.
-func (c *client) PinnedPosts(ctx context.Context, board Board) ([]Post, error) {
+func (c *Client) PinnedPosts(ctx context.Context, board Board) ([]Post, error) {
 	if err := c.requires(FeatureNews); err != nil {
 		return nil, err
 	}
@@ -674,7 +633,7 @@ func (c *client) PinnedPosts(ctx context.Context, board Board) ([]Post, error) {
 
 // Comments returns every comment under a post, newest first, each followed by its replies.
 // An unknown post reads as no comments
-func (c *client) Comments(ctx context.Context, board Board, postID string) ([]Comment, error) {
+func (c *Client) Comments(ctx context.Context, board Board, postID string) ([]Comment, error) {
 	if err := c.requires(FeatureNews); err != nil {
 		return nil, err
 	}
@@ -685,7 +644,7 @@ func (c *client) Comments(ctx context.Context, board Board, postID string) ([]Co
 }
 
 // TopStyles is the styleshop's top list: the 50 most downloaded looks of the week, unless StyleTop says otherwise
-func (c *client) TopStyles(ctx context.Context, q StyleTop) ([]StyleSummary, error) {
+func (c *Client) TopStyles(ctx context.Context, q StyleTop) ([]StyleSummary, error) {
 	if err := c.requires(FeatureStyles); err != nil {
 		return nil, err
 	}
@@ -710,7 +669,7 @@ func (c *client) TopStyles(ctx context.Context, q StyleTop) ([]StyleSummary, err
 }
 
 // SearchStyles matches looks by a word in their title, or with Field in the character's name or a worn item's
-func (c *client) SearchStyles(ctx context.Context, q StyleSearch) (*Paged[StyleSummary], error) {
+func (c *Client) SearchStyles(ctx context.Context, q StyleSearch) (*Paged[StyleSummary], error) {
 	if err := c.requires(FeatureStyles); err != nil {
 		return nil, err
 	}
@@ -739,7 +698,7 @@ func (c *client) SearchStyles(ctx context.Context, q StyleSearch) (*Paged[StyleS
 }
 
 // Styles walks every match, page after page. Size is the rows a page asks for, 100 unless set
-func (c *client) Styles(ctx context.Context, q StyleSearch) iter.Seq2[StyleSummary, error] {
+func (c *Client) Styles(ctx context.Context, q StyleSearch) iter.Seq2[StyleSummary, error] {
 	if q.Size <= 0 {
 		q.Size = 100
 	}
@@ -750,7 +709,7 @@ func (c *client) Styles(ctx context.Context, q StyleSearch) iter.Seq2[StyleSumma
 }
 
 // Style is one look in full: the text, the tags, and the gear slot by slot
-func (c *client) Style(ctx context.Context, id string) (*Style, error) {
+func (c *Client) Style(ctx context.Context, id string) (*Style, error) {
 	if err := c.requires(FeatureStyles); err != nil {
 		return nil, err
 	}
@@ -797,7 +756,7 @@ func (c *client) Style(ctx context.Context, id string) (*Style, error) {
 }
 
 // StyleComments returns the replies under a look
-func (c *client) StyleComments(ctx context.Context, id string) ([]Comment, error) {
+func (c *Client) StyleComments(ctx context.Context, id string) ([]Comment, error) {
 	if err := c.requires(FeatureStyles); err != nil {
 		return nil, err
 	}
@@ -808,7 +767,7 @@ func (c *client) StyleComments(ctx context.Context, id string) ([]Comment, error
 }
 
 // StyleTags returns what looks can be filtered by: the tags, then the classes, then the genders, with localized names
-func (c *client) StyleTags(ctx context.Context) ([]StyleTag, error) {
+func (c *Client) StyleTags(ctx context.Context) ([]StyleTag, error) {
 	if err := c.requires(FeatureStyles); err != nil {
 		return nil, err
 	}
@@ -832,7 +791,7 @@ func (c *client) StyleTags(ctx context.Context) ([]StyleTag, error) {
 }
 
 // comments reads every comment under a post, on the boards or the styleshop
-func (c *client) comments(ctx context.Context, ep endpoint, postID string) ([]Comment, error) {
+func (c *Client) comments(ctx context.Context, ep endpoint, postID string) ([]Comment, error) {
 	var comments []Comment
 	for cursor := "0"; cursor != ""; {
 		page, next, err := c.commentPage(ctx, ep, postID, cursor)
@@ -846,7 +805,7 @@ func (c *client) comments(ctx context.Context, ep endpoint, postID string) ([]Co
 }
 
 // commentPage reads the top-level comments before the given cursor flag, each followed by its replies. The next cursor is its last top-level comment
-func (c *client) commentPage(ctx context.Context, ep endpoint, postID, cursor string) ([]Comment, string, error) {
+func (c *Client) commentPage(ctx context.Context, ep endpoint, postID, cursor string) ([]Comment, string, error) {
 	query := url.Values{
 		"moreSize":          {"200"},
 		"moreDirection":     {"BEFORE"},
@@ -898,7 +857,7 @@ func (c *client) commentPage(ctx context.Context, ep endpoint, postID, cursor st
 }
 
 // postPage reads the posts before cursor, newest first. The next cursor is its last post
-func (c *client) postPage(ctx context.Context, board Board, cursor string) ([]Post, string, error) {
+func (c *Client) postPage(ctx context.Context, board Board, cursor string) ([]Post, string, error) {
 	ep := c.boardEndpoint(board, "/article/search/moreArticle")
 	query := url.Values{
 		"moreSize":          {"100"},
@@ -939,7 +898,7 @@ func (c *client) postPage(ctx context.Context, board Board, cursor string) ([]Po
 	return posts, next, nil
 }
 
-func (c *client) boardExists(ctx context.Context, board Board) error {
+func (c *Client) boardExists(ctx context.Context, board Board) error {
 	ep := c.boardEndpoint(board, "")
 	var raw boardResponse
 	if err := c.get(ctx, ep, nil, &raw); err != nil {
@@ -952,12 +911,12 @@ func (c *client) boardExists(ctx context.Context, board Board) error {
 }
 
 // boardEndpoint is a path under a board. NC suffixes the alias with the region's language: notice -> notice_ko
-func (c *client) boardEndpoint(board Board, path string) endpoint {
+func (c *Client) boardEndpoint(board Board, path string) endpoint {
 	return endpoint{feature: FeatureNews, path: "/board/" + string(board) + c.config.boardSuffix + path, host: communityHost}
 }
 
 // post checks a row and flattens it. Title and summary arrive with HTML entities in them.
-func (c *client) post(ep endpoint, board Board, row postRow) (Post, error) {
+func (c *Client) post(ep endpoint, board Board, row postRow) (Post, error) {
 	if row.ID == "" || row.Title == "" {
 		return Post{}, c.drift(ep, "id or title on a row")
 	}
@@ -982,7 +941,7 @@ func (c *client) post(ep endpoint, board Board, row postRow) (Post, error) {
 }
 
 // author is the character a row was posted as; nil when NC staff wrote it
-func (c *client) author(ep endpoint, row postRow) (*Author, error) {
+func (c *Client) author(ep endpoint, row postRow) (*Author, error) {
 	g := row.Writer.GameUser
 	if g.CharacterID == "" {
 		return nil, nil
@@ -998,12 +957,12 @@ func (c *client) author(ep endpoint, row postRow) (*Author, error) {
 }
 
 // styleEndpoint is a path on the styleshop
-func (c *client) styleEndpoint(path string) endpoint {
+func (c *Client) styleEndpoint(path string) endpoint {
 	return endpoint{feature: FeatureStyles, path: path, host: styleshopHost}
 }
 
 // stylePage reads one page of a styleshop list
-func (c *client) stylePage(ctx context.Context, ep endpoint, query url.Values) (stylesResponse, []StyleSummary, error) {
+func (c *Client) stylePage(ctx context.Context, ep endpoint, query url.Values) (stylesResponse, []StyleSummary, error) {
 	var raw stylesResponse
 	if err := c.get(ctx, ep, query, &raw); err != nil {
 		return raw, nil, err
@@ -1023,7 +982,7 @@ func (c *client) stylePage(ctx context.Context, ep endpoint, query url.Values) (
 }
 
 // style checks a row and flattens it. The counts and screenshots sit beside the row on a list and beside the body on a post
-func (c *client) style(ep endpoint, row postRow, counts styleCounts, images imageList) (StyleSummary, error) {
+func (c *Client) style(ep endpoint, row postRow, counts styleCounts, images imageList) (StyleSummary, error) {
 	if row.ID == "" || row.Title == "" {
 		return StyleSummary{}, c.drift(ep, "id or title on a row")
 	}
@@ -1070,7 +1029,7 @@ func rankMove(change int) (int, bool) {
 }
 
 // classTable falls back to the last table when a refresh fails
-func (c *client) classTable(ctx context.Context) (*classTable, error) {
+func (c *Client) classTable(ctx context.Context) (*classTable, error) {
 	table, err := c.classes.Get(ctx, c.loadClassTable)
 	if err == nil || ctx.Err() != nil {
 		return table, err
@@ -1086,7 +1045,7 @@ func (c *client) classTable(ctx context.Context) (*classTable, error) {
 // thrown away because the table could not be fetched, its rows just carry ClassID 0.
 //
 // A pcId the table has not heard of may predate a game patch, so it is reloaded, at most once a minute.
-func (c *client) classLabels(ctx context.Context, pcIDs ...int) *classTable {
+func (c *Client) classLabels(ctx context.Context, pcIDs ...int) *classTable {
 	table, err := c.classTable(ctx)
 	if err != nil {
 		c.warn("class table unavailable, rows carry ClassID 0", "err", err)
@@ -1101,7 +1060,7 @@ func (c *client) classLabels(ctx context.Context, pcIDs ...int) *classTable {
 	return table
 }
 
-func (c *client) loadClassTable(ctx context.Context) (*classTable, error) {
+func (c *Client) loadClassTable(ctx context.Context) (*classTable, error) {
 	classes, err := c.Classes(ctx)
 	if err != nil {
 		return nil, err
@@ -1125,12 +1084,12 @@ func (c *client) loadClassTable(ctx context.Context) (*classTable, error) {
 // drift handles a 200 response missing a field we rely on.
 //
 // A renamed field decodes to a zero value silently, so endpoints check the fields a row is meaningless without
-func (c *client) drift(ep endpoint, missing string) *APIError {
+func (c *Client) drift(ep endpoint, missing string) *APIError {
 	return c.errorf(ep, ErrUpstream, "response has no %s", missing)
 }
 
 // siteQuery builds everything required for a call to any region available
-func (c *client) siteQuery() url.Values {
+func (c *Client) siteQuery() url.Values {
 	query := url.Values{"lang": {c.config.lang}}
 	if c.config.shard != "" {
 		query.Set("region", c.config.shard)
@@ -1138,19 +1097,19 @@ func (c *client) siteQuery() url.Values {
 	return query
 }
 
-func (c *client) localeQuery() url.Values {
+func (c *Client) localeQuery() url.Values {
 	return url.Values{"locale": {fullTag(c.config.locale)}}
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
-func (c *client) requires(f Feature) error {
+func (c *Client) requires(f Feature) error {
 	if c.Supports(f) {
 		return nil
 	}
 	return c.errorf(endpoint{feature: f}, ErrFeatureUnavailable, "%s does not have %s", c.config.region, f)
 }
 
-func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any) error {
+func (c *Client) get(ctx context.Context, ep endpoint, query url.Values, out any) error {
 	// the styleshop answers a call with no shard from another one, NAE on top lists and Asia on search so far,
 	// and a post from elsewhere as an empty 200
 	if ep.host == styleshopHost && c.config.shard != "" {
@@ -1182,14 +1141,14 @@ func (c *client) get(ctx context.Context, ep endpoint, query url.Values, out any
 	return c.decode(ep, resp.Body, out)
 }
 
-func (c *client) warn(msg string, attrs ...any) {
+func (c *Client) warn(msg string, attrs ...any) {
 	if log := c.config.httpClient.Logger; log != nil {
 		log.Warn("aion2: "+msg, append([]any{"region", c.config.region}, attrs...)...)
 	}
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
-func (c *client) apiError(ep endpoint, err error) *APIError {
+func (c *Client) apiError(ep endpoint, err error) *APIError {
 	e := &APIError{Region: c.config.region, Feature: ep.feature, Err: err}
 	if ep.path != "" {
 		e.Path = c.url(ep)
@@ -1198,7 +1157,7 @@ func (c *client) apiError(ep endpoint, err error) *APIError {
 }
 
 // url is the endpoint on this region's deployment of its backend
-func (c *client) url(ep endpoint) string {
+func (c *Client) url(ep endpoint) string {
 	switch ep.host {
 	case gameDataHost:
 		return c.config.origin + c.config.apiPrefix + c.config.localePath + ep.path
@@ -1215,14 +1174,14 @@ func (c *client) url(ep endpoint) string {
 }
 
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
-func (c *client) errorf(ep endpoint, sentinel error, format string, args ...any) *APIError {
+func (c *Client) errorf(ep endpoint, sentinel error, format string, args ...any) *APIError {
 	return c.apiError(ep, fmt.Errorf("%w: "+format, append([]any{sentinel}, args...)...))
 }
 
 // decode keeps the json error: it names the field and the type found there.
 //
 // @TODO: cleanup & move to httpx once we switch to Go 1.27 and use the generic Get method
-func (c *client) decode(ep endpoint, data []byte, out any) error {
+func (c *Client) decode(ep endpoint, data []byte, out any) error {
 	err := json.Unmarshal(data, out)
 	if err == nil {
 		return nil
